@@ -23,8 +23,10 @@
         <p><strong>パスワード:</strong> BCrypt ハッシュ化済み（画面には表示しません）</p>
     </div>
 
-    <div th:if="${isOwner}" class="card">
-        <h3>メール変更</h3>
+    <div th:if="${canEditEmail}" class="card">
+        <h3>メール変更
+            <small th:if="${!isOwner}" style="color:#047857">（ADMIN 代理）</small>
+        </h3>
         <form th:action="@{/secure/users/{id}/update-email(id=${user.id})}" method="post">
             <label>メールアドレス</label>
             <input type="email" name="email" th:value="${user.email}">
@@ -34,7 +36,7 @@
         </form>
     </div>
 
-    <div th:if="${isOwner}" class="card">
+    <div th:if="${canChangePassword}" class="card">
         <h3>パスワード変更</h3>
         <form th:action="@{/secure/users/{id}/change-password(id=${user.id})}"
               th:object="${passwordForm}" method="post">
@@ -52,7 +54,10 @@
         </form>
     </div>
 
-    <p sec:authorize="isAuthenticated()" th:if="${!isOwner}">
+    <p th:if="${!isOwner and canEditEmail}">
+        <small>※ADMIN ロールにより他ユーザーのメールを代理更新できますが、パスワード変更は現パスワードの照合が必要なため本人のみです。</small>
+    </p>
+    <p sec:authorize="isAuthenticated()" th:if="${!canEditEmail}">
         <small>※他人のプロフィール情報は更新できません（オーナー判定）。</small>
     </p>
     <p sec:authorize="!isAuthenticated()">

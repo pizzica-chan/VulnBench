@@ -21,6 +21,7 @@
         <li><strong>パスワード</strong>は任意（例: <code>x</code>）。</li>
         <li><strong>ログイン</strong>ボタンを押す。</li>
         <li><strong>攻撃成功の目安:</strong> 「投稿一覧」などに飛び、画面上部に <code>admin</code> と表示される（複数行ヒット時は先頭ユーザとしてログイン扱い）。</li>
+        <li><strong>別パターン:</strong> 同じ趣旨で <code>' OR '1'='1' -- </code>（比較式版）も成立します。<code>'</code> の数や <code>--</code> 後のスペースに注意。</li>
         <li><strong>対策版で比較:</strong> <a th:href="@{/secure/login}"><code>/secure/login</code></a> で同じ文字列を試すとログインできない。</li>
     </ol>
 

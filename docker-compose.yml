@@ -25,7 +25,7 @@ services:
 
   app:
     build: .
-    image: vulnbench-app
+    image: secapp-web
     container_name: secapp-web
     depends_on:
       mysql:

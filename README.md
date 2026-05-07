@@ -173,7 +173,7 @@ JDK 21 と Maven が必要です。`application.yml` は `localhost:3306` を参
 VULNERABLE 側はパスワードを平文のまま `vuln_users` に保存しています。
 SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` に保存しています（`DataSeeder` が起動時に投入）。
 
-## URL マップ
+## URL マップ（主要なもの）
 
 ```
 /                          ランディング
@@ -182,16 +182,23 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 
 /vulnerable/login          ログイン
 /vulnerable/register       登録
-/vulnerable/logout         ログアウト
+/vulnerable/logout         ログアウト（GET）
 /vulnerable/posts          投稿一覧 / 検索 (?q=)
 /vulnerable/posts/new      投稿作成
-/vulnerable/posts/{id}     詳細 + コメント
-/vulnerable/posts/{id}/edit
-/vulnerable/posts/{id}/delete
+/vulnerable/posts/{id}     詳細 + コメント（?editCommentId=… でインライン編集）
+/vulnerable/posts/{id}/edit                      投稿編集フォーム
+/vulnerable/posts/{id}/update                    投稿更新（POST／GET ともに通る教材実装）
+/vulnerable/posts/{id}/delete                    投稿削除（GET でも通る）
+/vulnerable/posts/{postId}/comments              コメント追加（POST）
+/vulnerable/posts/{postId}/comments/{commentId}/update   コメント更新（POST）
+/vulnerable/posts/{postId}/comments/{commentId}/delete   コメント削除（GET でも通る）
 /vulnerable/users          ユーザー一覧（ADMIN にだけヘッダ2段目に表示／サーバは無認可で URL 直打ち可）
 /vulnerable/users/{id}     プロフィール
+/vulnerable/users/{id}/update-email              メール更新（GET / POST どちらも通る）
+/vulnerable/users/{id}/change-password           パスワード変更（POST、現パス未照合）
 
-/secure/...                上記とほぼ同じパス構成（一覧 `/secure/users` は ADMIN のみ）
+/secure/...                上記とほぼ同じパス構成。状態変更系はすべて POST + CSRF。
+                            一覧 /secure/users は ADMIN のみ、コメント・投稿削除も POST 限定。
 ```
 
 ## ディレクトリ構成（重要部分）
@@ -230,7 +237,7 @@ src/main/resources/
 
 | # | テーマ | 脆弱版で行うこと（概要） |
 |---|--------|-------------------------|
-| 1 | **SQLi** | `/vulnerable/login` でユーザー名に `' OR 1=1 -- `（末尾スペース付き）、パスワード任意でログイン。**攻撃成功の目安:** 画面上部の表示が `admin` になる。 |
+| 1 | **SQLi（ログイン／検索）** | `/vulnerable/login` でユーザー名に `' OR 1=1 -- `（末尾スペース付き）、パスワード任意でログイン。**攻撃成功の目安:** 投稿一覧の見出し横に「`admin` でログイン中」と出る。検索 SQLi は `/docs/sqli` の手順を参照。 |
 | 2 | **蓄積型 XSS** | `alice` / `wonderland` でログイン → 新規投稿の本文に `<script>alert(document.cookie)</script>`。**攻撃成功の目安:** 一覧や詳細でスクリプトが実行されアラートが出る。 |
 | 3 | **反射型 XSS** | `/vulnerable/posts` の検索に `<img src=x onerror=alert(1)>` を入力して検索。**攻撃成功の目安:** 一覧表示時に `alert(1)` が動く。 |
 | 4 | **CSRF / GET 削除** | ログイン後、新しいタブのアドレスバーに `http://localhost:8080/vulnerable/posts/1/delete` を入力（投稿 ID は一覧で確認）。**攻撃成功の目安:** 確認なしで投稿が消える。 |
@@ -245,4 +252,4 @@ src/main/resources/
 - これは学習用アプリです。本番運用には絶対に使わないでください。
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
 - インターネットに公開しないこと。ローカル環境だけで動かしてください。
-- `docker-compose.yml` には MySQL の **学習用クレデンシャル（`secapp` / `rootpass`）** が平文で書かれています。教材限定の前提で、**他環境への流用は避けて**ください。
+- `docker-compose.yml` / `application.yml` には MySQL の **学習用クレデンシャル**が平文で書かれています（**アプリ接続: `secapp` / `secapp`**、**MySQL root: `root` / `rootpass`**）。教材限定の前提で、**他環境への流用は避けて**ください。

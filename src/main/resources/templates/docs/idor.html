@@ -42,7 +42,7 @@
         <li>新しいタブのアドレスバーに次を入力（<code>{postId}</code> と <code>{commentId}</code> は実際の値に置換）:
             <pre>http://localhost:8080/vulnerable/posts/{postId}/comments/{commentId}/delete</pre>
         </li>
-        <li><strong>攻撃成功の目安:</strong> 該当コメントが投稿詳細から消える。POST 系の <code>/comments/{id}/update</code> も認可なしで通り、他人のコメント本文を書き換えられる。</li>
+        <li><strong>攻撃成功の目安:</strong> 該当コメントが投稿詳細から消える。POST 系の <code>/vulnerable/posts/{postId}/comments/{commentId}/update</code> も認可なしで通り、他人のコメント本文を書き換えられる（外部オリジンの自動 submit フォームと組み合わせれば <a th:href="@{/docs/csrf}">CSRF</a> 経由でも成立）。</li>
         <li><strong>対策版で比較:</strong> 同じ操作は POST＋CSRF＋オーナー検証で拒否される（403）。</li>
     </ol>
 

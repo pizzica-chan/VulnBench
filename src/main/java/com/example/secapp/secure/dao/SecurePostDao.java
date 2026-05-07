@@ -8,6 +8,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.jdbc.support.KeyHolder;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.sql.PreparedStatement;
 import java.sql.Statement;
@@ -49,18 +50,37 @@ public class SecurePostDao {
     }
 
     /**
-     * タイトル・本文に対する部分一致検索を行う。ワイルドカードは Java 側で付与する。
+     * タイトル・本文に対する部分一致検索を行う。
+     * <p>
+     * 値はパラメータ化クエリで束縛するうえ、LIKE 用の <code>%</code>／<code>_</code>／<code>\</code> を
+     * バックスラッシュでエスケープし、SQL 側にも {@code ESCAPE '\\'} を明示する。これにより
+     * 検索語に <code>%</code> や <code>_</code> を含めても「全件マッチ」「単一文字ワイルドカード」が成立しない。
      *
      * @param keyword 検索語
      * @return ヒットした投稿リスト
      */
     public List<Post> search(String keyword) {
-        String like = "%" + keyword + "%";
+        String like = "%" + escapeLike(keyword) + "%";
         return jdbc.query(
                 SELECT_BASE
-                        + "WHERE p.title LIKE ? OR p.content LIKE ? "
+                        + "WHERE p.title LIKE ? ESCAPE '\\\\' "
+                        + "OR p.content LIKE ? ESCAPE '\\\\' "
                         + "ORDER BY p.id DESC",
                 ROW_MAPPER, like, like);
+    }
+
+    /**
+     * LIKE のメタ文字 ({@code %}, {@code _}, {@code \}) をバックスラッシュでエスケープする。
+     *
+     * @param keyword 入力語（{@code null} 可）
+     * @return エスケープ済みの文字列。{@code null} 入力は空文字を返す。
+     */
+    private static String escapeLike(String keyword) {
+        if (keyword == null) return "";
+        return keyword
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_");
     }
 
     /**
@@ -114,9 +134,13 @@ public class SecurePostDao {
 
     /**
      * コメントを削除したうえで投稿を削除する。
+     * <p>
+     * 2 つの {@code UPDATE/DELETE} を <strong>1 トランザクション</strong>に束ねるため
+     * {@link Transactional} を付与している。教材として「対策版は両方が成立 or 両方失敗」を担保する。
      *
      * @param id 投稿 ID
      */
+    @Transactional
     public void delete(Long id) {
         jdbc.update("DELETE FROM sec_comments WHERE post_id = ?", id);
         jdbc.update("DELETE FROM sec_posts WHERE id = ?", id);

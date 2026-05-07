@@ -21,6 +21,10 @@ public class SecureUserDao {
 
     private final JdbcTemplate jdbc;
 
+    /** 取得対象列を明示する SELECT 句。{@code SELECT *} を避けスキーマ変更に追従しやすくする。 */
+    private static final String SELECT_COLUMNS =
+            "SELECT id, username, password, email, role, created_at FROM sec_users ";
+
     private static final RowMapper<User> ROW_MAPPER = (rs, n) -> User.builder()
             .id(rs.getLong("id"))
             .username(rs.getString("username"))
@@ -39,7 +43,7 @@ public class SecureUserDao {
     public Optional<User> findById(Long id) {
         try {
             return Optional.ofNullable(jdbc.queryForObject(
-                    "SELECT * FROM sec_users WHERE id = ?", ROW_MAPPER, id));
+                    SELECT_COLUMNS + "WHERE id = ?", ROW_MAPPER, id));
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
@@ -54,7 +58,7 @@ public class SecureUserDao {
     public Optional<User> findByUsername(String username) {
         try {
             return Optional.ofNullable(jdbc.queryForObject(
-                    "SELECT * FROM sec_users WHERE username = ?", ROW_MAPPER, username));
+                    SELECT_COLUMNS + "WHERE username = ?", ROW_MAPPER, username));
         } catch (EmptyResultDataAccessException e) {
             return Optional.empty();
         }
@@ -66,7 +70,7 @@ public class SecureUserDao {
      * @return ユーザリスト
      */
     public List<User> findAll() {
-        return jdbc.query("SELECT * FROM sec_users ORDER BY id", ROW_MAPPER);
+        return jdbc.query(SELECT_COLUMNS + "ORDER BY id", ROW_MAPPER);
     }
 
     /**

@@ -25,30 +25,35 @@
         </div>
     </form>
 
-    <form th:if="${post != null}"
-          th:action="@{/secure/posts/{id}/update(id=${post.id})}"
-          th:object="${postForm}"
-          method="post" class="card">
-        <label>タイトル</label>
-        <input type="text" th:field="*{title}">
-        <p th:if="${#fields.hasErrors('title')}" class="error" th:errors="*{title}"></p>
+    <div th:if="${post != null}" class="card">
+        <form th:action="@{/secure/posts/{id}/update(id=${post.id})}"
+              th:object="${postForm}"
+              method="post">
+            <label>タイトル</label>
+            <input type="text" th:field="*{title}">
+            <p th:if="${#fields.hasErrors('title')}" class="error" th:errors="*{title}"></p>
 
-        <label>本文（HTML はエスケープされます）</label>
-        <textarea th:field="*{content}"></textarea>
-        <p th:if="${#fields.hasErrors('content')}" class="error" th:errors="*{content}"></p>
+            <label>本文（HTML はエスケープされます）</label>
+            <textarea th:field="*{content}"></textarea>
+            <p th:if="${#fields.hasErrors('content')}" class="error" th:errors="*{content}"></p>
 
-        <div style="margin-top:1rem">
-            <button type="submit" class="btn btn-primary">更新する</button>
-        </div>
-    </form>
+            <div class="row" style="margin-top:1rem; justify-content:space-between">
+                <button type="submit" class="btn btn-primary">更新する</button>
+                <a class="btn btn-secondary" th:href="@{/secure/posts/{id}(id=${post.id})}">キャンセル</a>
+            </div>
+        </form>
 
-    <form th:if="${post != null}"
-          th:action="@{/secure/posts/{id}/delete(id=${post.id})}"
-          method="post"
-          onsubmit="return confirm('削除しますか？');"
-          class="card">
-        <button type="submit" class="btn btn-danger">削除（POST + CSRF + オーナー確認）</button>
-    </form>
+        <hr style="margin:1.25rem 0; border:none; border-top:1px solid var(--color-card-border)">
+
+        <form th:action="@{/secure/posts/{id}/delete(id=${post.id})}"
+              method="post"
+              onsubmit="return confirm('この投稿を削除しますか？（コメントも一緒に削除されます）');">
+            <p class="meta" style="margin:0 0 0.5rem">
+                危険操作: 投稿を削除します。コメントも連鎖削除されます（<code>@Transactional</code>）。
+            </p>
+            <button type="submit" class="btn btn-danger">削除（POST + CSRF + オーナー確認）</button>
+        </form>
+    </div>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

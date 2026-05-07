@@ -19,7 +19,7 @@
         <li><a th:href="@{/vulnerable/posts}">投稿一覧</a>を開き、削除してよい<strong>投稿 ID</strong>を確認する（初期データでは「ようこそ」が <code>id=1</code>、alice の「初投稿」が <code>id=2</code> など。詳細ページの URL の数字が ID）。</li>
         <li><strong>方法 A（確実・手順が短い）:</strong> ログインしたまま <strong>新しいタブ</strong>を開き、アドレスバーに
             <pre>http://localhost:8080/vulnerable/posts/1/delete</pre>
-            のように <strong><code>/vulnerable/posts/<em>{id}</em>/delete</code></strong> を入力して Enter（<code>{id}</code> は手順2で決めた値）。確認ダイアログは出ず、即リダイレクトされ投稿が消えます。
+            のように <strong><code>/vulnerable/posts/<em>{id}</em>/delete</code></strong> を入力して Enter（<code>{id}</code> は手順2で決めた値）。<strong>確認ダイアログは出ません</strong>（一覧画面の「削除」ボタンには JavaScript の <code>confirm</code> が付いていますが、この手順は<strong>アドレスバー直打ち</strong>のため <code>onclick</code> ハンドラが走らない＝そのまま削除リクエストが飛びます）。即リダイレクトされ投稿が消えます。
             <br><small>同じ要領で <code>/vulnerable/posts/{postId}/comments/{commentId}/delete</code> もコメント単位で GET 削除が成立します（<a th:href="@{/docs/idor}">IDOR</a>参照）。</small>
         </li>
         <li><strong>方法 B（CSRF の典型イメージ・自動 submit フォーム）:</strong> 次のような HTML を <strong>ローカルの別ファイル（例: <code>attacker.html</code>）</strong>として保存し、ログイン済みの同じブラウザで開く。ページを開いた瞬間にスクリプトがフォームを送信し、<strong>top-level navigation として</strong> <code>/vulnerable/posts/1/delete</code> へ遷移する。

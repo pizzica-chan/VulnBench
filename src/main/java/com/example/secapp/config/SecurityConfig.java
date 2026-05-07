@@ -1,7 +1,11 @@
 package com.example.secapp.config;
 
+import com.example.secapp.secure.auth.SecurePrincipal;
 import com.example.secapp.secure.auth.SecureUserDetailsService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -11,9 +15,15 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.AccessDeniedHandler;
+import org.springframework.security.web.access.AccessDeniedHandlerImpl;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.XXssProtectionHeaderWriter;
 
 /**
  * Spring Security の設定。
@@ -23,6 +33,7 @@ import org.springframework.security.web.SecurityFilterChain;
 @Configuration
 @EnableWebSecurity
 @RequiredArgsConstructor
+@Slf4j
 public class SecurityConfig {
 
     private final SecureUserDetailsService secureUserDetailsService;
@@ -34,6 +45,16 @@ public class SecurityConfig {
      * ユーザープロフィール {@code GET /secure/users/{id}} は教材上閲覧可能にする一方、
      * <strong>ユーザー一覧 {@code GET /secure/users} は ADMIN のみ</strong>とする。
      * 投稿一覧／詳細の {@code GET} は匿名可。新規投稿・編集・{@code POST} 系は認証必須とする。
+     * <p>
+     * さらに学習用に <strong>セキュリティヘッダ</strong>を明示的に付与する：
+     * <ul>
+     *     <li>{@code X-Content-Type-Options: nosniff} — MIME スニッフィング無効化</li>
+     *     <li>{@code X-Frame-Options: SAMEORIGIN} — クリックジャッキング防止</li>
+     *     <li>{@code X-XSS-Protection: 1; mode=block} — 旧ブラウザ互換</li>
+     *     <li>{@code Referrer-Policy: same-origin}</li>
+     *     <li>{@code Content-Security-Policy} — インライン script を禁止</li>
+     * </ul>
+     * 同じヘッダは寛容なチェーン（{@code /vulnerable/**}）には付かないため、レスポンスの差を比較できる。
      *
      * @param http HTTP セキュリティビルダ
      * @return 構築済みフィルタチェーン
@@ -67,9 +88,18 @@ public class SecurityConfig {
                         .invalidateHttpSession(true)
                         .deleteCookies("SECAPP_SESSION"))
                 .csrf(Customizer.withDefaults())
+                .headers(headers -> headers
+                        .contentTypeOptions(Customizer.withDefaults())
+                        .frameOptions(f -> f.sameOrigin())
+                        .xssProtection(xss -> xss.headerValue(XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK))
+                        .referrerPolicy(r -> r.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.SAME_ORIGIN))
+                        .contentSecurityPolicy(csp -> csp
+                                .policyDirectives("default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; frame-ancestors 'self'")))
                 .sessionManagement(s -> s
                         .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
                         .sessionFixation(sf -> sf.changeSessionId()))
+                .exceptionHandling(ex -> ex
+                        .accessDeniedHandler(auditingAccessDeniedHandler()))
                 .authenticationProvider(daoAuthenticationProvider());
 
         return http.build();
@@ -108,6 +138,34 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * 認可失敗を {@code INFO} ログに残してから既定の 403 ページへフォワードする
+     * {@link AccessDeniedHandler} を返す。
+     * <p>
+     * 教材として「対策版では認可違反が起きたことが監査ログに残る」点を可視化する。
+     *
+     * @return ログ機能付きの {@link AccessDeniedHandler}
+     */
+    @Bean
+    public AccessDeniedHandler auditingAccessDeniedHandler() {
+        AccessDeniedHandlerImpl delegate = new AccessDeniedHandlerImpl();
+        delegate.setErrorPage("/error/403");
+        return (HttpServletRequest request, HttpServletResponse response,
+                org.springframework.security.access.AccessDeniedException accessDeniedException) -> {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            Long userId = null;
+            String username = null;
+            if (auth != null && auth.getPrincipal() instanceof SecurePrincipal p) {
+                userId = p.getUserId();
+                username = p.getUsername();
+            }
+            log.info("audit: access denied method={} uri={} userId={} username={} reason={}",
+                    request.getMethod(), request.getRequestURI(), userId, username,
+                    accessDeniedException.getMessage());
+            delegate.handle(request, response, accessDeniedException);
+        };
     }
 
     /**

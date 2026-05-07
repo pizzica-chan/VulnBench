@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('権限がありません (403)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <div class="card" style="border-color:#fca5a5">
+        <h1 style="margin-top:0">403 権限がありません</h1>
+        <p>このリソースに対する操作が <strong>拒否されました</strong>。<br>
+            投稿・コメントの編集／削除や、他ユーザーの情報変更は <strong>本人または ADMIN ロール</strong>のみ実行できます。</p>
+        <p class="meta">これは対策版で <code>AccessDeniedException</code> を捕まえて専用ページに振り分けている結果です。脆弱版（<code>/vulnerable/**</code>）にはこの認可が無く、URL 直打ちで通ってしまうことを <a th:href="@{/docs/idor}">IDOR 解説</a>と見比べてください。</p>
+        <p>
+            <a class="btn btn-secondary" th:href="@{/secure/posts}">投稿一覧へ</a>
+            <a class="btn btn-secondary" th:href="@{/}">ホームへ</a>
+        </p>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

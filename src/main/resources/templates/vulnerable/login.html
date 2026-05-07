@@ -29,7 +29,7 @@
             <tr><td>alice</td><td>wonderland</td></tr>
             <tr><td>bob</td><td>builder</td></tr>
         </table>
-        <p>SQL インジェクションを試したい場合は、ユーザー名に <code>' OR '1'='1</code> 、パスワードに何か入れてみよう。</p>
+        <p>SQL インジェクションを試したい場合は、ユーザー名に <code>' OR 1=1 -- </code>（末尾はスペース 1 つ）、パスワードは任意で送信。詳細・別パターンは <a th:href="@{/docs/sqli}">SQLi 解説</a>へ。</p>
     </div>
 </main>
 

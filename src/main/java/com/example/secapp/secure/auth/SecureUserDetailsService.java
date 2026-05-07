@@ -10,6 +10,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Secure 版の {@link UserDetailsService} 実装。
@@ -21,6 +22,9 @@ import java.util.List;
 public class SecureUserDetailsService implements UserDetailsService {
 
     private final SecureUserDao userDao;
+
+    /** 教材で許可するロールのホワイトリスト。これ以外の DB 値は USER として扱う。 */
+    private static final Set<String> ALLOWED_ROLES = Set.of("ADMIN", "USER");
 
     /**
      * ログイン名（ユーザー名）から {@link UserDetails} を構築する。
@@ -37,7 +41,22 @@ public class SecureUserDetailsService implements UserDetailsService {
                 user.getId(),
                 user.getUsername(),
                 user.getPassword(),
-                List.of(new SimpleGrantedAuthority("ROLE_" + user.getRole()))
+                List.of(new SimpleGrantedAuthority("ROLE_" + normalizeRole(user.getRole())))
         );
+    }
+
+    /**
+     * DB 上のロール文字列をホワイトリストで正規化する。
+     * <p>
+     * 想定外（{@code null} / 小文字 / typo / 空白混入）はすべて {@code USER} に丸める。
+     * これにより不整合な権限名が伝播してアクセス制御が壊れることを防ぐ。
+     *
+     * @param raw DB のロール値
+     * @return 正規化したロール（{@code "ADMIN"} or {@code "USER"}）
+     */
+    private static String normalizeRole(String raw) {
+        if (raw == null) return "USER";
+        String upper = raw.trim().toUpperCase();
+        return ALLOWED_ROLES.contains(upper) ? upper : "USER";
     }
 }

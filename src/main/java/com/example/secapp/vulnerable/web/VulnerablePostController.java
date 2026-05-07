@@ -200,7 +200,11 @@ public class VulnerablePostController {
     }
 
     /**
-     * GET でコメント本文を更新する（危険: CSRF 容易／認可なし／文字列連結 SQL）。
+     * POST でコメント本文を更新する（危険: 認可なし／文字列連結 SQL／CSRF 無効）。
+     * <p>
+     * 投稿の更新が GET でも通る教材構造に対し、コメント側はあえて POST のみ。
+     * それでもこの寛容なフィルタチェーンでは CSRF が無効のため、外部オリジンの
+     * 自動 submit フォームから攻撃可能（{@code /docs/csrf} 参照）。
      *
      * @param postId    投稿 ID
      * @param commentId コメント ID

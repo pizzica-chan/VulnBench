@@ -6,16 +6,22 @@
 
 <main class="container">
     <h1>SecApp - サイバーセキュリティ学習アプリ</h1>
-    <p>同じ機能を持つ「脆弱版」と「対策版」を並べて触り、コードの差分から脆弱性対策の勘所を学べる Spring Boot アプリです。</p>
+    <p>同じ機能を持つ <strong>脆弱版サイト</strong>（脆弱版アプリ）と <strong>対策版サイト</strong>（対策版アプリ）を並べて触り、コードの差分から脆弱性対策の勘所を学べる Spring Boot アプリです。</p>
+
+    <p style="margin-top:0.75rem">
+        <a class="btn btn-secondary" th:href="@{/docs}">脆弱性解説 (/docs) を見る</a>
+        <a class="btn btn-secondary" th:href="@{/vulnerable/posts}">脆弱版サイトへ</a>
+        <a class="btn btn-secondary" th:href="@{/secure/posts}">対策版サイトへ</a>
+    </p>
 
     <div class="hero">
         <div class="panel vuln">
-            <h2>VULNERABLE 版</h2>
+            <h2>脆弱版サイト</h2>
             <p>SQL 文字列連結、平文パスワード、CSRF 無防備、<code>th:utext</code> による XSS、IDOR、自前 Cookie 認証 — お手本のように脆弱です。</p>
             <p><a th:href="@{/vulnerable/posts}">/vulnerable/posts へ</a></p>
         </div>
         <div class="panel sec">
-            <h2>SECURE 版</h2>
+            <h2>対策版サイト</h2>
             <p>パラメータ化クエリ、BCrypt、Spring Security、CSRF トークン、オーナー判定、セッション ID 再生成 — 同じ機能を安全に。</p>
             <p><a th:href="@{/secure/posts}">/secure/posts へ</a></p>
         </div>
@@ -23,11 +29,16 @@
 
     <h2>学習の流れ</h2>
     <ol>
-        <li>まず <a th:href="@{/docs}">脆弱性解説</a> を読み、攻撃の概念をつかむ</li>
-        <li>VULNERABLE 版で実際にペイロードを投入して攻撃を成立させる</li>
-        <li>SECURE 版で同じペイロードを試し、なぜ通らないかを確認する</li>
+        <li>まず <a th:href="@{/docs}">脆弱性解説 (/docs)</a> を読み、攻撃の概念をつかむ</li>
+        <li><strong>脆弱版サイト</strong>で実際にペイロードを投入して攻撃を成立させる</li>
+        <li><strong>対策版サイト</strong>で同じペイロードを試し、なぜ通らないかを確認する</li>
         <li>ソースコードの <code>vulnerable/</code> パッケージと <code>secure/</code> パッケージを diff で比較する</li>
     </ol>
+
+    <p class="meta">用語のメモ:
+        ヘッダ上段の<strong>「サイト」</strong>は教材全体の入口（ホーム／解説／脆弱版／対策版）、
+        ヘッダ下段の<strong>「アプリ」</strong>はその中で開いている脆弱版／対策版アプリ内の操作を指します。
+    </p>
 
     <h2>初期ユーザー（両版共通の認証情報）</h2>
     <table>

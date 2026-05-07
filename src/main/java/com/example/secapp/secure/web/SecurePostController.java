@@ -4,12 +4,12 @@ import com.example.secapp.common.dto.CommentForm;
 import com.example.secapp.common.dto.PostForm;
 import com.example.secapp.common.entity.Comment;
 import com.example.secapp.common.entity.Post;
+import com.example.secapp.secure.auth.SecureAuthorization;
 import com.example.secapp.secure.auth.SecurePrincipal;
 import com.example.secapp.secure.dao.SecureCommentDao;
 import com.example.secapp.secure.dao.SecurePostDao;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -102,14 +102,12 @@ public class SecurePostController {
         List<Comment> comments = commentDao.findByPostId(id);
         Set<Long> manageableCommentIds = new HashSet<>();
         for (Comment c : comments) {
-            if (canManageComment(c, me)) manageableCommentIds.add(c.getId());
+            if (SecureAuthorization.canManageComment(c, me)) manageableCommentIds.add(c.getId());
         }
         model.addAttribute("post", post);
         model.addAttribute("comments", comments);
         model.addAttribute("commentForm", new CommentForm());
-        model.addAttribute("canManagePost", canManagePost(post, me));
-        model.addAttribute("currentUserId", me == null ? null : me.getUserId());
-        model.addAttribute("isAdmin", me != null && hasAdmin(me));
+        model.addAttribute("canManagePost", SecureAuthorization.canManagePost(post, me));
         model.addAttribute("manageableCommentIds", manageableCommentIds);
         model.addAttribute("editCommentId", editCommentId);
         return "secure/post_detail";
@@ -153,7 +151,7 @@ public class SecurePostController {
                            Model model) {
         Post post = postDao.findById(id).orElse(null);
         if (post == null) return "redirect:/secure/posts";
-        ensureOwner(post, me);
+        SecureAuthorization.ensurePostOwner(post, me);
         PostForm form = new PostForm();
         form.setTitle(post.getTitle());
         form.setContent(post.getContent());
@@ -180,7 +178,7 @@ public class SecurePostController {
                          Model model) {
         Post post = postDao.findById(id).orElse(null);
         if (post == null) return "redirect:/secure/posts";
-        ensureOwner(post, me);
+        SecureAuthorization.ensurePostOwner(post, me);
         if (br.hasErrors()) {
             model.addAttribute("post", post);
             return "secure/post_form";
@@ -201,31 +199,41 @@ public class SecurePostController {
                          @AuthenticationPrincipal SecurePrincipal me) {
         Post post = postDao.findById(id).orElse(null);
         if (post == null) return "redirect:/secure/posts";
-        ensureOwner(post, me);
+        SecureAuthorization.ensurePostOwner(post, me);
         postDao.delete(id);
         return "redirect:/secure/posts";
     }
 
     /**
      * コメント本文を更新する。コメント主または ADMIN のみ。
+     * <p>
+     * Bean Validation（{@link CommentForm}）で空文字・長さを検査する。
      *
      * @param postId    投稿 ID
      * @param commentId コメント ID
-     * @param content   新しい本文
+     * @param form      コメント更新フォーム
+     * @param br        検証結果
      * @param me        ログインユーザ
+     * @param ra        フラッシュメッセージ
      * @return 詳細へリダイレクト
      */
     @PostMapping("/{postId}/comments/{commentId}/update")
     public String updateComment(@PathVariable Long postId,
                                 @PathVariable Long commentId,
-                                @RequestParam String content,
-                                @AuthenticationPrincipal SecurePrincipal me) {
+                                @Valid @ModelAttribute("commentEditForm") CommentForm form,
+                                BindingResult br,
+                                @AuthenticationPrincipal SecurePrincipal me,
+                                RedirectAttributes ra) {
         Comment c = commentDao.findById(commentId).orElse(null);
         if (c == null || !c.getPostId().equals(postId)) {
             return "redirect:/secure/posts/" + postId;
         }
-        ensureCommentOwner(c, me);
-        commentDao.update(commentId, content);
+        SecureAuthorization.ensureCommentOwner(c, me);
+        if (br.hasErrors()) {
+            ra.addFlashAttribute("errorMessage", "コメントの内容を確認してください。");
+            return "redirect:/secure/posts/" + postId;
+        }
+        commentDao.update(commentId, form.getContent());
         return "redirect:/secure/posts/" + postId;
     }
 
@@ -245,73 +253,8 @@ public class SecurePostController {
         if (c == null || !c.getPostId().equals(postId)) {
             return "redirect:/secure/posts/" + postId;
         }
-        ensureCommentOwner(c, me);
+        SecureAuthorization.ensureCommentOwner(c, me);
         commentDao.delete(commentId);
         return "redirect:/secure/posts/" + postId;
-    }
-
-    /**
-     * 投稿のオーナーであるか、管理者ロールを持つかを検証する。
-     *
-     * @param post 対象投稿
-     * @param me   ログインユーザ
-     * @throws AccessDeniedException 権限がない場合
-     */
-    private void ensureOwner(Post post, SecurePrincipal me) {
-        if (me == null || (!hasAdmin(me) && !post.getUserId().equals(me.getUserId()))) {
-            throw new AccessDeniedException("not the owner");
-        }
-    }
-
-    /**
-     * コメントのオーナーであるか、管理者ロールを持つかを検証する。
-     *
-     * @param comment 対象コメント
-     * @param me      ログインユーザ
-     * @throws AccessDeniedException 権限がない場合
-     */
-    private void ensureCommentOwner(Comment comment, SecurePrincipal me) {
-        if (me == null || (!hasAdmin(me) && !comment.getUserId().equals(me.getUserId()))) {
-            throw new AccessDeniedException("not the comment owner");
-        }
-    }
-
-    /**
-     * 画面上の「コメント編集・削除」表示可否を判定する（{@code null} 安全）。
-     *
-     * @param comment 対象コメント
-     * @param me      ログインユーザ
-     * @return コメント主または ADMIN なら {@code true}
-     */
-    private static boolean canManageComment(Comment comment, SecurePrincipal me) {
-        if (comment == null || me == null) {
-            return false;
-        }
-        return hasAdmin(me) || comment.getUserId().equals(me.getUserId());
-    }
-
-    /**
-     * 投稿の編集・削除ボタンを表示してよいかを判定する（{@code null} 安全）。
-     *
-     * @param post 対象投稿
-     * @param me   ログインユーザ（{@code null} 可）
-     * @return 投稿者または ADMIN なら {@code true}
-     */
-    private static boolean canManagePost(Post post, SecurePrincipal me) {
-        if (post == null || me == null) {
-            return false;
-        }
-        return hasAdmin(me) || post.getUserId().equals(me.getUserId());
-    }
-
-    /**
-     * ログインユーザが ADMIN ロールを持つかを判定する。
-     *
-     * @param me ログインユーザ
-     * @return ADMIN なら {@code true}
-     */
-    private static boolean hasAdmin(SecurePrincipal me) {
-        return me.getAuthorities().stream()
-                .anyMatch(a -> "ROLE_ADMIN".equals(a.getAuthority()));
     }
 }
