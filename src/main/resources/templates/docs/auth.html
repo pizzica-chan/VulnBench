@@ -14,8 +14,12 @@
 
     <h2>再現手順（VULNERABLE 版）</h2>
     <ol>
-        <li><a th:href="@{/vulnerable/users}">/vulnerable/users</a> を開くと、画面に平文のパスワードが表示される</li>
-        <li>SQLi (<a th:href="@{/docs/sqli}">/docs/sqli</a>) と組み合わせると、外部からも一発で抜ける</li>
+        <li>ブラウザで <code>http://localhost:8080/vulnerable/users</code> を開く（未ログインのままでアクセス可能）。</li>
+        <li>一覧の各行に、ユーザー名・メールに加え <strong>パスワード列に平文</strong>（例: <code>admin123</code>）がそのまま載っていることを確認する。</li>
+        <li>ユーザ名をクリックするとプロフィールへ遷移し、そこでも平文パスワードが表示される。</li>
+        <li><strong>攻撃成功の目安（情報漏洩のデモ）:</strong> 画面だけでクレデンシャルが読み取れる。一覧・プロフィールのいずれでも、保存パスワードが平文のまま表示される。</li>
+        <li><strong>対策版で比較:</strong> <code>http://localhost:8080/secure/users</code> は閲覧用に匿名で開けますが、一覧・詳細とも <strong>パスワードは表示されない</strong>（BCrypt ハッシュも画面に出さない）。</li>
+        <li><strong>組み合わせ:</strong> <a th:href="@{/docs/sqli}">SQL インジェクション</a>で DB から同じテーブルを読めた場合、平文パスワードが一括で漏洩するリスクを想像する。</li>
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>

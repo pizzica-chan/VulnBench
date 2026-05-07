@@ -23,7 +23,7 @@
         </div>
     </form>
 
-    <form th:if="${post != null}"
+    <form th:if="${post != null and canManagePost}"
           th:action="@{/vulnerable/posts/{id}/update(id=${post.id})}"
           th:object="${postForm}"
           method="post" class="card">
@@ -40,6 +40,16 @@
                onclick="return confirm('削除しますか？')">削除（GET で削除！）</a>
         </div>
     </form>
+
+    <div th:if="${post != null and !canManagePost}" class="card">
+        <p><strong th:text="${post.title}">title</strong></p>
+        <div th:utext="${post.content}"></div>
+        <p style="margin-top:1rem">
+            <small>投稿者本人（または管理者）以外には、編集フォームは出しません。
+                サーバ側の認可は欠けているため、<a th:href="@{/docs/idor}">IDOR 解説</a>のとおり URL を直接指定すると操作できてしまいます。</small>
+        </p>
+        <p><a class="btn btn-secondary" th:href="@{/vulnerable/posts/{id}(id=${post.id})}">詳細へ戻る</a></p>
+    </div>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

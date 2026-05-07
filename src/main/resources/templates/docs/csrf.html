@@ -13,11 +13,24 @@
         ログイン中の Cookie はブラウザが自動送信するため、被害者が気づかない間に投稿削除や設定変更が走ります。</p>
 
     <h2>再現手順（VULNERABLE 版）</h2>
+    <p>「ログイン済みのブラウザが、クリック一つ／タブ一つで<strong>GET による状態変更</strong>を意図せず実行してしまう」イメージで確認します。</p>
     <ol>
-        <li>VULNERABLE 版にログインし、適当な投稿を作成する</li>
-        <li>下記のような HTML を別タブ（同一オリジンでなくて良い）で開かせるだけで削除が走る:
-            <pre>&lt;img src="http://localhost:8080/vulnerable/posts/1/delete"&gt;</pre></li>
-        <li>編集も同様に <code>...?title=hacked&content=hacked</code> を <code>img</code> や <code>iframe</code> から呼べる</li>
+        <li><code>http://localhost:8080/vulnerable/login</code> でログイン（例: <code>alice</code> / <code>wonderland</code>）。</li>
+        <li><a th:href="@{/vulnerable/posts}">投稿一覧</a>を開き、削除してよい<strong>投稿 ID</strong>を確認する（初期データでは「ようこそ」が <code>id=1</code>、alice の「初投稿」が <code>id=2</code> など。詳細ページの URL の数字が ID）。</li>
+        <li><strong>方法 A（確実・手順が短い）:</strong> ログインしたまま <strong>新しいタブ</strong>を開き、アドレスバーに
+            <pre>http://localhost:8080/vulnerable/posts/1/delete</pre>
+            のように <strong><code>/vulnerable/posts/<em>{id}</em>/delete</code></strong> を入力して Enter（<code>{id}</code> は手順2で決めた値）。確認ダイアログは出ず、即リダイレクトされ投稿が消えます。
+        </li>
+        <li><strong>方法 B（CSRF の典型イメージ・条件付き）:</strong> 次のような HTML を「別の HTML ファイル」に保存し、ログイン済みの同じブラウザで開く。
+            <pre>&lt;img src="http://localhost:8080/vulnerable/posts/1/delete" width="0" height="0" alt=""&gt;</pre>
+            画像の GET リクエストに Cookie が付くかどうかは、ブラウザの Cookie の <code>SameSite</code> などに依存します。<strong>再現しない場合は方法 A で「GET 削除」の危険性は同等に確認できます。</strong>
+        </li>
+        <li><strong>GET による更新:</strong> ログイン不要な実装のため、同様にアドレスバーへ
+            <pre>http://localhost:8080/vulnerable/posts/1/update?title=hacked&amp;content=hacked</pre>
+            のように貼ると、認可チェックなく更新されます（<code>id</code> は存在する投稿に合わせる）。
+        </li>
+        <li><strong>攻撃成功の目安:</strong> <strong>削除</strong>なら一覧から該当投稿が消えている。<strong>GET 更新</strong>なら該当投稿を開き、タイトル・本文が <code>hacked</code> に変わっている。</li>
+        <li><strong>対策版で比較:</strong> 削除・更新は POST＋CSRF トークンが必要なため、同じ URL を踏んでも成立しません。</li>
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>
@@ -29,7 +42,7 @@ public String delete(@PathVariable Long id) { ... }
 public String updateViaGet(@PathVariable Long id,
                            @RequestParam String title,
                            @RequestParam String content) { ... }</pre>
-    <p>さらに <code>VulnerableSecurityConfig</code> 相当のフィルタチェーンで CSRF を <code>disable()</code> しています。</p>
+    <p>さらに <code>SecurityConfig</code> の寛容なフィルタチェーン（<code>/secure/**</code> 以外）で CSRF を <code>disable()</code> しています。</p>
 
     <h2>SECURE 側のコード</h2>
     <pre>// SecurityConfig#secureFilterChain

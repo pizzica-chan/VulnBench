@@ -13,7 +13,7 @@
         </div>
         <div th:utext="${post.content}"></div>
 
-        <div style="margin-top:1rem" class="row">
+        <div style="margin-top:1rem" class="row" th:if="${canManagePost}">
             <a th:href="@{/vulnerable/posts/{id}/edit(id=${post.id})}" class="btn btn-secondary">編集</a>
             <a th:href="@{/vulnerable/posts/{id}/delete(id=${post.id})}"
                class="btn btn-danger"

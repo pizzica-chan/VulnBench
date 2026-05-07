@@ -67,6 +67,13 @@ chmod +x scripts/wsl-up.sh scripts/wsl-down.sh
 - **`scripts/*.ps1`** … **Windows PowerShell 5.1** が、BOM なし UTF-8 の日本語を誤読してパースエラーになることがあるため、**UTF-8（BOM 付き）**で保存しています。編集後にスクリプトが動かなくなったら、保存形式が BOM 付き UTF-8 か確認してください。
 - **コンソールの文字化け** … `one-click-wsl-up.cmd` など実行時、コマンドプロンプトの既定コードページのため日本語メッセージが化けることがあります。**処理自体は成功している**ことがあります。見やすくしたい場合は **Windows Terminal** を使う、`chcp 65001` で UTF-8 にする、などで表示を整えられます。
 
+#### Docker での MySQL データ（教材用のリセット）
+
+- **DB はコンテナとともに捨てる前提です。** `docker-compose.yml` では MySQL のデータディレクトリを **tmpfs** に載せており、コンテナの**再作成**や**再起動**で空になります。起動後は Flyway と `DataSeeder` で毎回同じ初期スキーマ・初期データになります。
+- **`wsl-up.sh` と `docker-desktop-up.ps1`** は `docker compose up --build -d --force-recreate` を実行するため、これらのスクリプトで起動するたびに **クリーンな DB** になります。
+- 手動で `docker compose up -d` だけを使い、**すでに動いている MySQL コンテナを止めずに**再実行した場合は、そのコンテナ内のデータはそのままです（MySQL を止める・作り直すとリセットされます）。
+- 古い構成の **名前付きボリューム `secapp-mysql-data`** が環境に残っている場合は、未使用なら `docker volume rm` で削除してかまいません（現在の compose では定義していません）。
+
 ### WSL で起動する
 
 前提:
@@ -218,17 +225,19 @@ src/main/resources/
 
 ## 学習シナリオ
 
-各シナリオは「VULNERABLE 側で攻撃成立を確認 → SECURE 側で同じ手で失敗するのを確認 → コードを diff で比較」の順がオススメです。
+各シナリオは **「VULNERABLE 側で攻撃成立を確認 → SECURE 側で同じ手で失敗するのを確認 → ソースの `vulnerable/` と `secure/` を diff」** の順がおすすめです。手順の全文は **<http://localhost:8080/docs>** の各ページにあります（前提・初期ユーザ表は解説一覧の先頭に記載）。
 
-1. **SQLi**: `/vulnerable/login` でユーザー名 `' OR '1'='1' -- ` （末尾スペース）でログイン → admin になりすませる
-2. **蓄積型 XSS**: `/vulnerable/posts/new` で本文に `<script>alert(document.cookie)</script>` → 一覧表示で発火
-3. **反射型 XSS**: `/vulnerable/posts?q=<img src=x onerror=alert(1)>`
-4. **CSRF**: `<img src="http://localhost:8080/vulnerable/posts/1/delete">` を別ページから踏ませる
-5. **パスワード平文**: `/vulnerable/users` でパスワードがそのまま見える / `vuln_users` テーブルを直接覗く
-6. **セッション改ざん**: ログイン後 DevTools で `vuln_uid` Cookie を `1` に書き換え → admin になりすまし
-7. **IDOR**: `bob` でログインし `/vulnerable/users/1/update-email?email=hacked@evil.com`
+| # | テーマ | 脆弱版で行うこと（概要） |
+|---|--------|-------------------------|
+| 1 | **SQLi** | `/vulnerable/login` でユーザー名に `' OR 1=1 -- `（末尾スペース付き）、パスワード任意でログイン。**攻撃成功の目安:** 画面上部の表示が `admin` になる。 |
+| 2 | **蓄積型 XSS** | `alice` / `wonderland` でログイン → 新規投稿の本文に `<script>alert(document.cookie)</script>`。**攻撃成功の目安:** 一覧や詳細でスクリプトが実行されアラートが出る。 |
+| 3 | **反射型 XSS** | `/vulnerable/posts` の検索に `<img src=x onerror=alert(1)>` を入力して検索。**攻撃成功の目安:** 一覧表示時に `alert(1)` が動く。 |
+| 4 | **CSRF / GET 削除** | ログイン後、新しいタブのアドレスバーに `http://localhost:8080/vulnerable/posts/1/delete` を入力（投稿 ID は一覧で確認）。**攻撃成功の目安:** 確認なしで投稿が消える。 |
+| 5 | **パスワード平文** | `/vulnerable/users` で一覧に平文パスワードが載る。**攻撃成功の目安:** `admin123` などがそのまま読める（対策版では表示されない）。 |
+| 6 | **セッション改ざん** | `bob` / `builder` でログイン → DevTools の Cookie で `vuln_uid` を `1` に変更 → 一覧を再読み込み。**攻撃成功の目安:** 表示が `admin` に切り替わる。 |
+| 7 | **IDOR** | `bob` でログインしたまま `http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com` にアクセス。**攻撃成功の目安:** ユーザー一覧で admin のメールが書き換わっている。 |
 
-同じ操作を `/secure/...` 側で試すと、各対策（パラメータ化クエリ・エスケープ・CSRF トークン・BCrypt・セッション再生成・オーナー判定）によって成立しないことが確認できます。
+同じ URL・操作を `/secure/...` に置き換えると、パラメータ化クエリ・エスケープ・CSRF・BCrypt・セッション・オーナー判定などにより成立しません。
 
 ## 重要な注意
 

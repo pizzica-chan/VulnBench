@@ -13,11 +13,26 @@
         認証は通っているのに、<strong>「対象が本当に自分のものか」のチェックが抜けている</strong>のが本質。</p>
 
     <h2>再現手順（VULNERABLE 版）</h2>
+    <h3>他人のメール変更（GET）</h3>
     <ol>
-        <li><code>bob</code> でログイン（自分の userId は 3）</li>
-        <li>URL を <code>/vulnerable/users/1/update-email?email=hacked@evil.com</code> に書き換えてアクセス</li>
-        <li>admin のメールが書き換わる（GET なのでクリックだけで成立）</li>
-        <li>同様に他人の投稿も <code>/vulnerable/posts/1/edit</code> や <code>/vulnerable/posts/1/delete</code> で操作できる</li>
+        <li><code>http://localhost:8080/vulnerable/login</code> で <code>bob</code> / <code>builder</code> としてログイン（bob はユーザー ID <code>3</code>）。</li>
+        <li>アドレスバーを次の URL に<strong>そのまま貼り替えて</strong> Enter（ホストは環境に合わせる）:
+            <pre>http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com</pre>
+            <code>1</code> は admin のユーザー ID です。
+        </li>
+        <li><strong>攻撃成功の目安:</strong> プロフィールなどにリダイレクトされ、<a th:href="@{/vulnerable/users}">ユーザー一覧</a>で admin のメールが <code>hacked@evil.com</code> になっている。</li>
+    </ol>
+    <h3>他人の投稿の削除・編集（URL 直指定）</h3>
+    <p>画面上は投稿者本人にだけ「編集・削除」ボタンを出していますが、<strong>サーバはオーナー検証をしていません</strong>。</p>
+    <ol>
+        <li>引き続き bob でログインしたまま、新しいタブ（またはアドレスバー）で次を開く:
+            <pre>http://localhost:8080/vulnerable/posts/1/delete</pre>
+            （初期データでは ID <code>1</code> は admin の「ようこそ」投稿。一覧・詳細の URL で ID を確認してよい。）
+        </li>
+        <li>確認ダイアログなしで削除され、一覧から該当投稿が消える。</li>
+        <li><strong>攻撃成功の目安:</strong> bob の画面では他人投稿の「削除」ボタンは出ていないが、URL 直指定だけで admin の投稿を消せている。</li>
+        <li>編集用フォーム URL 例: <code>http://localhost:8080/vulnerable/posts/2/edit</code>（存在する ID に変更）。POST 更新や GET 更新も認可なしで通ります（<a th:href="@{/docs/csrf}">CSRF</a>参照）。</li>
+        <li><strong>対策版で比較:</strong> 同じ URL を試しても、Spring Security のオーナー／ADMIN チェックで拒否される。</li>
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>

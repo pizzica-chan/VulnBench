@@ -14,17 +14,30 @@
 
     <h2>蓄積型 XSS の再現手順（VULNERABLE 版）</h2>
     <ol>
-        <li><a th:href="@{/vulnerable/login}">/vulnerable/login</a> で <code>alice / wonderland</code> としてログイン</li>
-        <li><a th:href="@{/vulnerable/posts/new}">/vulnerable/posts/new</a> に移動し、本文に
-            <code>&lt;script&gt;alert('XSS by ' + document.cookie)&lt;/script&gt;</code> を入れて投稿</li>
-        <li>投稿一覧 (<a th:href="@{/vulnerable/posts}">/vulnerable/posts</a>) や詳細を開くたびに
-            アラートが出る。Cookie が <code>HttpOnly=false</code> なので JS から読める</li>
+        <li><code>http://localhost:8080/vulnerable/login</code> を開く。</li>
+        <li>ユーザー名 <code>alice</code>、パスワード <code>wonderland</code> でログイン。</li>
+        <li>上部の <strong>新規投稿</strong>（または <a th:href="@{/vulnerable/posts/new}"><code>/vulnerable/posts/new</code></a>）を開く。</li>
+        <li>タイトルは任意（例: <code>XSS test</code>）。</li>
+        <li><strong>本文</strong>に次をそのまま貼り付ける:
+            <pre>&lt;script&gt;alert('XSS by ' + document.cookie)&lt;/script&gt;</pre>
+        </li>
+        <li><strong>投稿する</strong>を押す。</li>
+        <li><a th:href="@{/vulnerable/posts}">投稿一覧</a>を開き直すか、さきほどの投稿の詳細を開く。</li>
+        <li><strong>攻撃成功の目安:</strong> ブラウザのアラートが開き、メッセージに Cookie 相当の文字列が含まれる（<code>vuln_uid</code> は <code>HttpOnly=false</code> のため JS から読める設定）。</li>
+        <li><strong>対策版で比較:</strong> <code>/secure/...</code> では本文がエスケープされ、同じ文字列ではスクリプトが実行されない。</li>
     </ol>
 
-    <h2>反射型 XSS の再現手順</h2>
-    <p>検索画面で <code>q</code> パラメータがそのまま <code>th:utext</code> で表示される。</p>
+    <h2>反射型 XSS の再現手順（VULNERABLE）</h2>
+    <p>検索キーワード <code>q</code> が一覧画面で <code>th:utext</code> 出力されるため、HTML がそのまま解釈されます。</p>
     <th:block th:with="reflectedXssQ=${'<img src=x onerror=alert(1)>'}">
-    <p>例: <a th:href="@{/vulnerable/posts(q=${reflectedXssQ})}">/vulnerable/posts?q=&lt;img src=x onerror=alert(1)&gt;</a></p>
+    <ol>
+        <li>ログインの要否はありません。<a th:href="@{/vulnerable/posts}">投稿一覧</a>を開く。</li>
+        <li>検索欄に次を貼り付けて <strong>検索</strong>を押す:
+            <pre>&lt;img src=x onerror=alert(1)&gt;</pre>
+        </li>
+        <li><strong>攻撃成功の目安:</strong> 一覧ページ表示時に <code>alert(1)</code> が実行される。</li>
+        <li>URL 直アクセスでの確認: <a th:href="@{/vulnerable/posts(q=${reflectedXssQ})}">このリンク</a>を踏むと同じ効果（アドレスバーの <code>q=</code> を見る）。</li>
+        <li><strong>対策版で比較:</strong> <a th:href="@{/secure/posts}"><code>/secure/posts</code></a> で同じ検索をしてもキーワードはエスケープされ、<code>alert(1)</code> は動かない。</li>
     </th:block>
 
     <h2>VULNERABLE 側のテンプレート</h2>

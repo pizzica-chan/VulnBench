@@ -15,10 +15,14 @@
 
     <h2>再現手順（VULNERABLE 版）</h2>
     <ol>
-        <li>VULNERABLE 版で <code>bob</code> としてログイン（Cookie は <code>vuln_uid=3</code>）</li>
-        <li>ブラウザの DevTools → Application → Cookies で <code>vuln_uid</code> を <code>1</code> に書き換える</li>
-        <li>そのまま <a th:href="@{/vulnerable/posts}">/vulnerable/posts</a> をリロードすると admin として表示される</li>
-        <li>XSS 経由でも、Cookie に <code>HttpOnly</code> がないので <code>document.cookie</code> で読める</li>
+        <li><code>http://localhost:8080/vulnerable/login</code> を開く。</li>
+        <li>ユーザー名 <code>bob</code>、パスワード <code>builder</code> でログインする。</li>
+        <li>投稿一覧右上あたりに <code>bob</code> と表示されていることを確認（このとき Cookie <code>vuln_uid</code> は通常 <code>3</code> = bob の ID）。</li>
+        <li><strong>開発者ツールで Cookie を編集:</strong> <kbd>F12</kbd> → ストレージ／アプリケーション（ブラウザにより名称差あり）→ <strong>Cookies</strong> → <code>http://localhost:8080</code> → <code>vuln_uid</code> の値を <code>1</code> に変更して保存。</li>
+        <li>同じタブで <a th:href="@{/vulnerable/posts}">投稿一覧</a>を再読み込み（F5）。</li>
+        <li><strong>攻撃成功の目安:</strong> 画面右上の表示が <code>admin</code> に変わる（サーバは Cookie の数字だけをユーザ ID として信じている）。</li>
+        <li><strong>補足:</strong> XSS と組み合わせる想定では、<code>HttpOnly</code> が付いていないため JavaScript の <code>document.cookie</code> でも <code>vuln_uid</code> を読める設定になっています。</li>
+        <li><strong>対策版で比較:</strong> <code>vuln_uid</code> は使わず、サーバ発行のセッション Cookie（<code>HttpOnly</code> 等）を使うため、同様の改ざんは成立しません。</li>
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>

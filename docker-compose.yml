@@ -13,8 +13,9 @@ services:
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
-    volumes:
-      - secapp-mysql-data:/var/lib/mysql
+    # 永続ボリュームにしない。コンテナ再作成／再起動のたびに空の DB から起動（教材用に毎回同じ初期データ）。
+    tmpfs:
+      - /var/lib/mysql
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-prootpass"]
       interval: 5s
@@ -33,6 +34,3 @@ services:
       - "8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
-
-volumes:
-  secapp-mysql-data:

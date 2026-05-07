@@ -8,6 +8,23 @@
     <h1>脆弱性解説</h1>
     <p>各脆弱性ごとに「攻撃ペイロード例」と「VULNERABLE / SECURE の実装の違い」をまとめています。</p>
 
+    <div class="card">
+        <h2>共通の前提（手順を試す前に）</h2>
+        <ol>
+            <li><strong>アプリにアクセスできること。</strong> 例: ブラウザで <code>http://localhost:8080</code> を開き、トップページが表示される。</li>
+            <li><strong>手順の「脆弱版」</strong>は URL が <code>/vulnerable/...</code> の画面です。<strong>対策版</strong>は <code>/secure/...</code>。まず脆弱版で挙動を確認し、同じ操作を対策版で試して「防げる」ことを確認するのがおすすめです。</li>
+            <li><strong>初期ログイン情報</strong>（初期データ投入直後の例。ID は Vulnerable 版のユーザ一覧でも確認できます）:
+                <table class="card" style="margin-top:0.5rem; padding:0.5rem 1rem">
+                    <tr><th>ユーザー名</th><th>パスワード</th><th>役割</th><th>想定 ID（参考）</th></tr>
+                    <tr><td><code>admin</code></td><td><code>admin123</code></td><td>ADMIN</td><td>1</td></tr>
+                    <tr><td><code>alice</code></td><td><code>wonderland</code></td><td>USER</td><td>2</td></tr>
+                    <tr><td><code>bob</code></td><td><code>builder</code></td><td>USER</td><td>3</td></tr>
+                </table>
+            </li>
+            <li>手順内の <code>http://localhost:8080</code> は、環境に合わせてホストやポートを読み替えてください。</li>
+        </ol>
+    </div>
+
     <div th:each="v : ${vulnerabilities}" class="card">
         <h3><a th:href="@{/docs/{id}(id=${v.id})}" th:text="${v.title}"></a></h3>
         <p th:text="${v.summary}"></p>

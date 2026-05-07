@@ -97,10 +97,12 @@ public class VulnerablePostController {
         Post post = postDao.findById(id).orElse(null);
         if (post == null) return "redirect:/vulnerable/posts";
         List<Comment> comments = commentDao.findByPostId(id);
+        User me = auth.currentUser(req).orElse(null);
         model.addAttribute("post", post);
         model.addAttribute("comments", comments);
         model.addAttribute("commentForm", new CommentForm());
-        model.addAttribute("currentUser", auth.currentUser(req).orElse(null));
+        model.addAttribute("currentUser", me);
+        model.addAttribute("canManagePost", canManagePost(me, post));
         return "vulnerable/post_detail";
     }
 
@@ -137,9 +139,11 @@ public class VulnerablePostController {
         PostForm form = new PostForm();
         form.setTitle(post.getTitle());
         form.setContent(post.getContent());
+        User me = auth.currentUser(req).orElse(null);
         model.addAttribute("postForm", form);
         model.addAttribute("post", post);
-        model.addAttribute("currentUser", auth.currentUser(req).orElse(null));
+        model.addAttribute("currentUser", me);
+        model.addAttribute("canManagePost", canManagePost(me, post));
         return "vulnerable/post_form";
     }
 
@@ -182,5 +186,24 @@ public class VulnerablePostController {
     public String delete(@PathVariable Long id) {
         postDao.delete(id);
         return "redirect:/vulnerable/posts";
+    }
+
+    /**
+     * 画面の「編集・削除」ボタンを出してよいかのみを判定する（サーバ側の認可とは別）。
+     * <p>
+     * 投稿者本人または ADMIN のとき {@code true}。オーナー検証なしの API と組み合わせて IDOR を学ぶ前提。
+     *
+     * @param current ログインユーザ（未ログインなら {@code null}）
+     * @param post    対象投稿
+     * @return ボタン表示に足るなら {@code true}
+     */
+    private static boolean canManagePost(User current, Post post) {
+        if (current == null || post == null) {
+            return false;
+        }
+        if ("ADMIN".equals(current.getRole())) {
+            return true;
+        }
+        return current.getId().equals(post.getUserId());
     }
 }

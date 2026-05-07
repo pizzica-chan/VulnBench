@@ -32,8 +32,8 @@ if (-not $SkipDockerDesktopStart) {
 }
 
 Write-Host "==> repo: $RepoRoot"
-Write-Host "==> docker compose up --build -d"
-& docker compose up --build -d
+Write-Host "==> docker compose up --build -d --force-recreate"
+& docker compose up --build -d --force-recreate
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host ""

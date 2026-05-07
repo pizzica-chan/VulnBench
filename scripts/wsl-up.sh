@@ -19,8 +19,8 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 echo "==> repo: $REPO_ROOT"
-echo "==> docker compose up --build -d"
-docker compose up --build -d
+echo "==> docker compose up --build -d --force-recreate"
+docker compose up --build -d --force-recreate
 
 echo ""
 echo "==> 起動しました。コンテナ状態:"
