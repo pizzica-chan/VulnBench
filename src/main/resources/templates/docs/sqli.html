@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('SQL インジェクション')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <p><a th:href="@{/docs}">&larr; 一覧に戻る</a></p>
+    <h1>SQL インジェクション (SQLi)</h1>
+
+    <h2>何が起きるのか</h2>
+    <p>ユーザー入力を SQL 文字列に直接連結すると、入力に <code>' OR '1'='1</code> などを混ぜられたとき
+        本来意図した条件式が破壊され、認証バイパスやデータ漏洩・破壊が起きます。</p>
+
+    <h2>攻撃ペイロード例</h2>
+    <ol>
+        <li>VULNERABLE 版のログイン画面 (<a th:href="@{/vulnerable/login}">/vulnerable/login</a>) を開く</li>
+        <li>ユーザー名に <code>' OR '1'='1' -- </code> を入力（最後にスペース）</li>
+        <li>パスワードは何でも良い（例: <code>x</code>）</li>
+        <li>送信すると、最初に見つかったユーザー（admin）として認証されてしまう</li>
+    </ol>
+
+    <p>検索画面 (<a th:href="@{/vulnerable/posts(q=' UNION SELECT 1,2,3,4,5,username FROM vuln_users -- )}">/vulnerable/posts?q=...</a>) でも、
+        <code>q</code> を SQL に埋め込んでいるので UNION SELECT で別テーブルを引くこともできます。</p>
+
+    <h2>VULNERABLE 側のコード</h2>
+    <pre>// VulnerableUserDao#findForLogin
+String sql = "SELECT * FROM vuln_users "
+        + "WHERE username = '" + username + "' "
+        + "AND password = '" + password + "'";
+jdbc.queryForObject(sql, ROW_MAPPER);</pre>
+
+    <h2>SECURE 側のコード</h2>
+    <pre>// SecureUserDao#findByUsername + SecureUserDetailsService
+jdbc.queryForObject(
+    "SELECT * FROM sec_users WHERE username = ?",
+    ROW_MAPPER, username);
+// パスワードは BCryptPasswordEncoder#matches で照合（生 SQL に乗せない）</pre>
+
+    <h2>対策のポイント</h2>
+    <ul>
+        <li>必ずパラメータ化クエリ（<code>?</code> または <code>:name</code>）を使う</li>
+        <li>パスワードはハッシュ化してから保存し、SQL 上で <code>=</code> 比較しない</li>
+        <li>入力サニタイズに頼らず、SQL の構文と値を分離する</li>
+    </ul>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

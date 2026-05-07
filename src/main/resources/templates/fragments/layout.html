@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:fragment="head(title)">
+    <meta charset="UTF-8">
+    <title th:text="${title} ?: 'SecApp'">SecApp</title>
+    <link rel="stylesheet" th:href="@{/css/app.css}">
+</head>
+<body>
+
+<header th:fragment="topbar(mode)" class="topbar">
+    <a class="brand" th:href="@{/}">SecApp - サイバーセキュリティ学習アプリ</a>
+    <nav class="nav">
+        <span th:if="${mode == 'vulnerable'}" class="badge badge-vuln">VULNERABLE MODE</span>
+        <span th:if="${mode == 'secure'}"     class="badge badge-sec">SECURE MODE</span>
+        <span th:if="${mode == null}"         class="badge badge-neutral">HOME</span>
+        <a th:href="@{/}">ホーム</a>
+        <a th:href="@{/docs}">脆弱性解説</a>
+        <a th:href="@{/vulnerable/posts}">脆弱版</a>
+        <a th:href="@{/secure/posts}">対策版</a>
+    </nav>
+</header>
+
+<footer th:fragment="footer" class="footer">
+    <small>これは学習用アプリです。本物のサービスでは絶対に Vulnerable 側のコードを使わないでください。</small>
+</footer>
+
+</body>
+</html>

@@ -1,0 +1,17 @@
+target/
+.idea/
+.vscode/
+*.iml
+*.iws
+*.ipr
+.classpath
+.project
+.settings/
+.factorypath
+HELP.md
+.DS_Store
+build/
+out/
+.gradle/
+logs/
+*.log

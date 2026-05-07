@@ -1,0 +1,30 @@
+spring:
+  application:
+    name: secapp
+  datasource:
+    url: jdbc:mysql://localhost:3306/secapp?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&serverTimezone=Asia/Tokyo
+    username: secapp
+    password: secapp
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+  thymeleaf:
+    cache: false
+  servlet:
+    session:
+      cookie:
+        name: SECAPP_SESSION
+        http-only: true
+
+server:
+  port: 8080
+  error:
+    include-message: always
+    include-stacktrace: never
+
+logging:
+  level:
+    org.springframework.security: INFO
+    org.springframework.jdbc.core: DEBUG

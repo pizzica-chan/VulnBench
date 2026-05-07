@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ユーザー一覧 (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <h1>ユーザー一覧 <small style="color:#047857">[Secure]</small></h1>
+    <table class="card" style="padding:0">
+        <tr><th>ID</th><th>ユーザー名</th><th>メール</th><th>役割</th></tr>
+        <tr th:each="u : ${users}">
+            <td th:text="${u.id}"></td>
+            <td><a th:href="@{/secure/users/{id}(id=${u.id})}" th:text="${u.username}"></a></td>
+            <td th:text="${u.email}"></td>
+            <td th:text="${u.role}"></td>
+        </tr>
+    </table>
+    <p>※パスワードカラムは BCrypt ハッシュなので画面には出しません。</p>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

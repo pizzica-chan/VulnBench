@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ユーザー登録 (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <h1>ユーザー登録 <small style="color:#047857">[Secure]</small></h1>
+    <div th:if="${errorMessage}" class="error" th:text="${errorMessage}"></div>
+    <div th:if="${flashMessage}" class="flash" th:text="${flashMessage}"></div>
+
+    <form th:action="@{/secure/register}" th:object="${registerForm}" method="post" class="card">
+        <label>ユーザー名</label>
+        <input type="text" th:field="*{username}">
+        <p th:if="${#fields.hasErrors('username')}" class="error" th:errors="*{username}"></p>
+
+        <label>パスワード</label>
+        <input type="password" th:field="*{password}">
+        <p th:if="${#fields.hasErrors('password')}" class="error" th:errors="*{password}"></p>
+
+        <label>メールアドレス</label>
+        <input type="email" th:field="*{email}">
+        <p th:if="${#fields.hasErrors('email')}" class="error" th:errors="*{email}"></p>
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">登録</button>
+            <a class="btn btn-secondary" th:href="@{/secure/login}">ログインへ</a>
+        </div>
+    </form>
+
+    <div class="card">
+        <h3>このフォームの安全ポイント</h3>
+        <ul>
+            <li>パスワードは <strong>BCrypt</strong> でハッシュ化して保存。</li>
+            <li>すべての SQL は <code>?</code> プレースホルダ（パラメータ化クエリ）。</li>
+            <li>POST + CSRF トークン（隠しフィールド）でフォーム送信を保護。</li>
+            <li>入力値は Bean Validation で長さや形式をチェック。</li>
+        </ul>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

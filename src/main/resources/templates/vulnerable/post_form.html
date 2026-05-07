@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('投稿フォーム (Vulnerable)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('vulnerable')}"></header>
+
+<main class="container">
+    <h1 th:if="${post == null}">新規投稿 <small style="color:#b91c1c">[Vulnerable]</small></h1>
+    <h1 th:if="${post != null}">投稿編集 <small style="color:#b91c1c">[Vulnerable]</small></h1>
+
+    <form th:if="${post == null}"
+          th:action="@{/vulnerable/posts/new}"
+          th:object="${postForm}"
+          method="post" class="card">
+        <label>タイトル</label>
+        <input type="text" th:field="*{title}">
+
+        <label>本文（HTML がそのままレンダリングされます）</label>
+        <textarea th:field="*{content}"></textarea>
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">投稿する</button>
+        </div>
+    </form>
+
+    <form th:if="${post != null}"
+          th:action="@{/vulnerable/posts/{id}/update(id=${post.id})}"
+          th:object="${postForm}"
+          method="post" class="card">
+        <label>タイトル</label>
+        <input type="text" th:field="*{title}">
+
+        <label>本文（HTML がそのままレンダリングされます）</label>
+        <textarea th:field="*{content}"></textarea>
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">更新する</button>
+            <a th:href="@{/vulnerable/posts/{id}/delete(id=${post.id})}"
+               class="btn btn-danger"
+               onclick="return confirm('削除しますか？')">削除（GET で削除！）</a>
+        </div>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

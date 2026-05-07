@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('CSRF')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <p><a th:href="@{/docs}">&larr; 一覧に戻る</a></p>
+    <h1>クロスサイトリクエストフォージェリ (CSRF)</h1>
+
+    <h2>何が起きるのか</h2>
+    <p>被害者がログイン中のサイトに対して、攻撃者の用意したページから「意図しないリクエスト」を発射させる攻撃。
+        ログイン中の Cookie はブラウザが自動送信するため、被害者が気づかない間に投稿削除や設定変更が走ります。</p>
+
+    <h2>再現手順（VULNERABLE 版）</h2>
+    <ol>
+        <li>VULNERABLE 版にログインし、適当な投稿を作成する</li>
+        <li>下記のような HTML を別タブ（同一オリジンでなくて良い）で開かせるだけで削除が走る:
+            <pre>&lt;img src="http://localhost:8080/vulnerable/posts/1/delete"&gt;</pre></li>
+        <li>編集も同様に <code>...?title=hacked&content=hacked</code> を <code>img</code> や <code>iframe</code> から呼べる</li>
+    </ol>
+
+    <h2>VULNERABLE 側のコード</h2>
+    <pre>// VulnerablePostController
+@GetMapping("/{id}/delete")
+public String delete(@PathVariable Long id) { ... }
+
+@GetMapping("/{id}/update")
+public String updateViaGet(@PathVariable Long id,
+                           @RequestParam String title,
+                           @RequestParam String content) { ... }</pre>
+    <p>さらに <code>VulnerableSecurityConfig</code> 相当のフィルタチェーンで CSRF を <code>disable()</code> しています。</p>
+
+    <h2>SECURE 側のコード</h2>
+    <pre>// SecurityConfig#secureFilterChain
+.csrf(Customizer.withDefaults())
+// SecurePostController
+@PostMapping("/{id}/update")
+public String update(...) { ... }
+@PostMapping("/{id}/delete")
+public String delete(...) { ... }</pre>
+
+    <h2>対策のポイント</h2>
+    <ul>
+        <li>状態を変えるリクエストは GET ではなく POST/PUT/DELETE にする</li>
+        <li>CSRF トークン（Spring Security が自動で隠しフィールドに埋め込む）を必ず検証する</li>
+        <li><code>SameSite=Lax</code> Cookie も併用すると効果的</li>
+    </ul>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

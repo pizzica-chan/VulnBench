@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
+<head th:replace="~{fragments/layout :: head('投稿詳細 (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <article class="card">
+        <h1 th:text="${post.title}"></h1>
+        <div class="meta">
+            by <a th:href="@{/secure/users/{id}(id=${post.userId})}" th:text="${post.authorName}"></a>
+            ・ <span th:text="${#temporals.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div th:text="${post.content}" style="white-space:pre-wrap"></div>
+
+        <div style="margin-top:1rem" class="row" sec:authorize="isAuthenticated()">
+            <a th:href="@{/secure/posts/{id}/edit(id=${post.id})}" class="btn btn-secondary">編集</a>
+            <form th:action="@{/secure/posts/{id}/delete(id=${post.id})}"
+                  method="post"
+                  onsubmit="return confirm('削除しますか？');">
+                <button type="submit" class="btn btn-danger">削除</button>
+            </form>
+        </div>
+    </article>
+
+    <h2>コメント</h2>
+    <div th:each="c : ${comments}" class="card">
+        <div class="meta">
+            <a th:href="@{/secure/users/{id}(id=${c.userId})}" th:text="${c.authorName}"></a>
+            ・ <span th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div th:text="${c.content}" style="white-space:pre-wrap"></div>
+    </div>
+
+    <form sec:authorize="isAuthenticated()"
+          th:action="@{/secure/posts/{id}/comments(id=${post.id})}"
+          th:object="${commentForm}"
+          method="post" class="card">
+        <label>コメント</label>
+        <textarea th:field="*{content}"></textarea>
+        <div style="margin-top:0.5rem">
+            <button type="submit" class="btn btn-primary">送信</button>
+        </div>
+    </form>
+    <p sec:authorize="!isAuthenticated()">
+        コメントするには <a th:href="@{/secure/login}">ログイン</a> してください。
+    </p>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

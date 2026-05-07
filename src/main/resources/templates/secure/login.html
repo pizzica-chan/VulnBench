@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ログイン (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <h1>ログイン <small style="color:#047857">[Secure]</small></h1>
+    <div th:if="${errorMessage}" class="error" th:text="${errorMessage}"></div>
+    <div th:if="${flashMessage}" class="flash" th:text="${flashMessage}"></div>
+
+    <form th:action="@{/secure/login}" method="post" class="card">
+        <label>ユーザー名</label>
+        <input type="text" name="username" autocomplete="username">
+
+        <label>パスワード</label>
+        <input type="password" name="password" autocomplete="current-password">
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">ログイン</button>
+            <a class="btn btn-secondary" th:href="@{/secure/register}">新規登録</a>
+        </div>
+    </form>
+
+    <div class="card">
+        <h3>初期ユーザー</h3>
+        <table>
+            <tr><th>ユーザー名</th><th>パスワード</th></tr>
+            <tr><td>admin</td><td>admin123</td></tr>
+            <tr><td>alice</td><td>wonderland</td></tr>
+            <tr><td>bob</td><td>builder</td></tr>
+        </table>
+        <p>※こちらでは <code>' OR '1'='1</code> を入れても素通りはできません。
+            DB のパスワードは BCrypt ハッシュで保存されています。</p>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

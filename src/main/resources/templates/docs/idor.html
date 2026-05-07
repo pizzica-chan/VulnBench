@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('IDOR / 認可不備')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <p><a th:href="@{/docs}">&larr; 一覧に戻る</a></p>
+    <h1>認可不備 / IDOR (Insecure Direct Object Reference)</h1>
+
+    <h2>何が起きるのか</h2>
+    <p>URL の <code>{id}</code> をその場で書き換えるだけで他人のリソースにアクセス・更新できてしまう脆弱性。
+        認証は通っているのに、<strong>「対象が本当に自分のものか」のチェックが抜けている</strong>のが本質。</p>
+
+    <h2>再現手順（VULNERABLE 版）</h2>
+    <ol>
+        <li><code>bob</code> でログイン（自分の userId は 3）</li>
+        <li>URL を <code>/vulnerable/users/1/update-email?email=hacked@evil.com</code> に書き換えてアクセス</li>
+        <li>admin のメールが書き換わる（GET なのでクリックだけで成立）</li>
+        <li>同様に他人の投稿も <code>/vulnerable/posts/1/edit</code> や <code>/vulnerable/posts/1/delete</code> で操作できる</li>
+    </ol>
+
+    <h2>VULNERABLE 側のコード</h2>
+    <pre>// VulnerablePostController#delete
+@GetMapping("/{id}/delete")
+public String delete(@PathVariable Long id) {
+    postDao.delete(id);  // 誰がオーナーかを確認しない
+    return "redirect:/vulnerable/posts";
+}</pre>
+
+    <h2>SECURE 側のコード</h2>
+    <pre>// SecurePostController#delete
+@PostMapping("/{id}/delete")
+public String delete(@PathVariable Long id, @AuthenticationPrincipal SecurePrincipal me) {
+    Post post = postDao.findById(id).orElseThrow();
+    ensureOwner(post, me); // 投稿者本人 or ADMIN だけ通す
+    postDao.delete(id);
+    return "redirect:/secure/posts";
+}</pre>
+
+    <h2>対策のポイント</h2>
+    <ul>
+        <li>「認証されているか」と「そのリソースの所有者か」を必ず別々に確認する</li>
+        <li>サーバー側でオーナー判定を行う（クライアント側の隠し input 等は信用しない）</li>
+        <li>URL に他人の ID を入れて成立してしまう操作はないか、CRUD ごとに棚卸しする</li>
+        <li>必要に応じて <code>@PreAuthorize</code> や <code>@PostAuthorize</code> を使う</li>
+    </ul>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

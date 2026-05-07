@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
+<head th:replace="~{fragments/layout :: head('投稿一覧 (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h1>投稿一覧 <small style="color:#047857">[Secure]</small></h1>
+        <div sec:authorize="isAuthenticated()">
+            <a th:href="@{/secure/posts/new}" class="btn btn-primary">新規投稿</a>
+            <form th:action="@{/secure/logout}" method="post" style="display:inline">
+                <button class="btn btn-secondary" type="submit">ログアウト</button>
+            </form>
+        </div>
+    </div>
+
+    <form method="get" th:action="@{/secure/posts}" class="card">
+        <label>キーワード検索（タイトル・本文）</label>
+        <div class="row">
+            <input type="text" name="q" th:value="${q}">
+            <button class="btn btn-primary" type="submit">検索</button>
+        </div>
+        <p th:if="${q != null and !q.isEmpty()}" style="margin-top:0.5rem">
+            検索キーワード: <span th:text="${q}"></span>
+            <small>（<code>th:text</code> で出力されるためエスケープ済み）</small>
+        </p>
+    </form>
+
+    <div th:if="${posts.empty}" class="card">投稿はまだありません。</div>
+
+    <div th:each="p : ${posts}" class="card">
+        <h3>
+            <a th:href="@{/secure/posts/{id}(id=${p.id})}" th:text="${p.title}"></a>
+        </h3>
+        <div class="meta">
+            by <a th:href="@{/secure/users/{id}(id=${p.userId})}" th:text="${p.authorName}"></a>
+            ・ <span th:text="${#temporals.format(p.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div th:text="${p.content}" style="white-space:pre-wrap"></div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

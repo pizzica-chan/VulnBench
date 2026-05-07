@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('セッション管理不備')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <p><a th:href="@{/docs}">&larr; 一覧に戻る</a></p>
+    <h1>セッション管理不備</h1>
+
+    <h2>何が起きるのか</h2>
+    <p>VULNERABLE 版は「ログイン後に <code>vuln_uid=&lt;userId&gt;</code> という Cookie を発行する」だけの自前認証です。
+        Cookie に署名がなく値も推測可能なので、ブラウザの開発者ツールで <code>vuln_uid=1</code> に書き換えるだけで
+        admin になりすませます。</p>
+
+    <h2>再現手順（VULNERABLE 版）</h2>
+    <ol>
+        <li>VULNERABLE 版で <code>bob</code> としてログイン（Cookie は <code>vuln_uid=3</code>）</li>
+        <li>ブラウザの DevTools → Application → Cookies で <code>vuln_uid</code> を <code>1</code> に書き換える</li>
+        <li>そのまま <a th:href="@{/vulnerable/posts}">/vulnerable/posts</a> をリロードすると admin として表示される</li>
+        <li>XSS 経由でも、Cookie に <code>HttpOnly</code> がないので <code>document.cookie</code> で読める</li>
+    </ol>
+
+    <h2>VULNERABLE 側のコード</h2>
+    <pre>Cookie cookie = new Cookie("vuln_uid", String.valueOf(userId));
+cookie.setHttpOnly(false); // 故意の設定
+res.addCookie(cookie);</pre>
+
+    <h2>SECURE 側のコード</h2>
+    <pre>// SecurityConfig
+.sessionManagement(s -> s
+    .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
+    .sessionFixation(sf -> sf.changeSessionId()))
+// application.yml
+servlet:
+  session:
+    cookie:
+      name: SECAPP_SESSION
+      http-only: true</pre>
+
+    <h2>対策のポイント</h2>
+    <ul>
+        <li>セッション ID はサーバー側で生成し、Cookie には推測不可能な値だけを格納する</li>
+        <li>ログイン直後にセッション ID を再生成（<code>changeSessionId</code>）してセッション固定化を防ぐ</li>
+        <li>Cookie には <code>HttpOnly</code>, <code>Secure</code>, <code>SameSite=Lax</code> を付ける</li>
+        <li>ログアウト時はサーバー側のセッションも無効化する（<code>invalidateHttpSession(true)</code>）</li>
+    </ul>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

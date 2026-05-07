@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('パスワード平文保存')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <p><a th:href="@{/docs}">&larr; 一覧に戻る</a></p>
+    <h1>パスワード平文保存（不適切なクレデンシャル管理）</h1>
+
+    <h2>何が起きるのか</h2>
+    <p>DB に平文パスワードを入れると、SQL インジェクションや内部漏洩・バックアップ流出 1 回で
+        ユーザーの「他サービスでも同じパスワード」まで芋づる的に漏れます（クレデンシャル・スタッフィング）。</p>
+
+    <h2>再現手順（VULNERABLE 版）</h2>
+    <ol>
+        <li><a th:href="@{/vulnerable/users}">/vulnerable/users</a> を開くと、画面に平文のパスワードが表示される</li>
+        <li>SQLi (<a th:href="@{/docs/sqli}">/docs/sqli</a>) と組み合わせると、外部からも一発で抜ける</li>
+    </ol>
+
+    <h2>VULNERABLE 側のコード</h2>
+    <pre>// VulnerableUserDao#create
+String sql = "INSERT INTO vuln_users (username, password, email, role) VALUES ("
+        + "'" + username + "', '" + plainPassword + "', '" + email + "', 'USER')";
+jdbc.update(sql);</pre>
+
+    <h2>SECURE 側のコード</h2>
+    <pre>// SecureAuthController#doRegister
+String hashed = passwordEncoder.encode(form.getPassword());
+userDao.create(form.getUsername(), hashed, form.getEmail(), "USER");
+
+// SecureUserDao#create はパラメータ化クエリ
+"INSERT INTO sec_users (username, password, email, role) VALUES (?, ?, ?, ?)"</pre>
+
+    <h2>対策のポイント</h2>
+    <ul>
+        <li>BCrypt / Argon2 / scrypt のような<strong>適応的</strong>ハッシュを使う（単純な MD5/SHA は不可）</li>
+        <li>ソルトはアルゴリズムが自動で付与する（BCrypt はハッシュ文字列に含まれる）</li>
+        <li>画面・ログ・エラーメッセージにパスワードを出さない</li>
+        <li>多要素認証 (TOTP など) を併用するとさらに強い</li>
+    </ul>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

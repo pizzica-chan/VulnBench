@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('投稿詳細 (Vulnerable)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('vulnerable')}"></header>
+
+<main class="container">
+    <article class="card">
+        <h1 th:text="${post.title}"></h1>
+        <div class="meta">
+            by <a th:href="@{/vulnerable/users/{id}(id=${post.userId})}" th:text="${post.authorName}"></a>
+            ・ <span th:text="${#temporals.format(post.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div th:utext="${post.content}"></div>
+
+        <div style="margin-top:1rem" class="row">
+            <a th:href="@{/vulnerable/posts/{id}/edit(id=${post.id})}" class="btn btn-secondary">編集</a>
+            <a th:href="@{/vulnerable/posts/{id}/delete(id=${post.id})}"
+               class="btn btn-danger"
+               onclick="return confirm('削除しますか？')">削除（GET で削除！）</a>
+        </div>
+    </article>
+
+    <h2>コメント</h2>
+    <div th:each="c : ${comments}" class="card">
+        <div class="meta">
+            <a th:href="@{/vulnerable/users/{id}(id=${c.userId})}" th:text="${c.authorName}"></a>
+            ・ <span th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div th:utext="${c.content}"></div>
+    </div>
+
+    <form th:if="${currentUser != null}"
+          th:action="@{/vulnerable/posts/{id}/comments(id=${post.id})}"
+          th:object="${commentForm}"
+          method="post" class="card">
+        <label>コメント</label>
+        <textarea th:field="*{content}"></textarea>
+        <div style="margin-top:0.5rem">
+            <button type="submit" class="btn btn-primary">送信</button>
+        </div>
+    </form>
+    <p th:if="${currentUser == null}">
+        コメントするには <a th:href="@{/vulnerable/login}">ログイン</a> してください。
+    </p>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

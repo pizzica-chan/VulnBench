@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ユーザー詳細 (Vulnerable)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('vulnerable')}"></header>
+
+<main class="container">
+    <h1>
+        <span th:text="${user.username}"></span>
+        <small style="color:#b91c1c">[Vulnerable]</small>
+    </h1>
+
+    <div class="card">
+        <p><strong>ID:</strong> <span th:text="${user.id}"></span></p>
+        <p><strong>役割:</strong> <span th:text="${user.role}"></span></p>
+        <p><strong>登録日時:</strong>
+            <span th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </p>
+        <p><strong>パスワード（平文）:</strong> <code th:text="${user.password}"></code></p>
+    </div>
+
+    <div class="card">
+        <h3>メール変更</h3>
+        <p>※認可チェックなし。誰でも誰のメールでも書き換えられる（IDOR）。</p>
+        <form th:action="@{/vulnerable/users/{id}/update-email(id=${user.id})}" method="post">
+            <label>メールアドレス</label>
+            <input type="email" name="email" th:value="${user.email}">
+            <div style="margin-top:0.5rem">
+                <button class="btn btn-primary" type="submit">更新</button>
+            </div>
+        </form>
+        <p style="margin-top:0.5rem">
+            <small>GET でも更新できる:
+                <code th:text="'/vulnerable/users/' + ${user.id} + '/update-email?email=hacked@evil.com'"></code>
+            </small>
+        </p>
+    </div>
+
+    <div class="card">
+        <h3>パスワード変更</h3>
+        <p>※現パスワード確認なし、認可チェックなし。</p>
+        <form th:action="@{/vulnerable/users/{id}/change-password(id=${user.id})}"
+              th:object="${passwordForm}" method="post">
+            <label>現パスワード（チェックされません）</label>
+            <input type="password" th:field="*{currentPassword}">
+
+            <label>新パスワード</label>
+            <input type="password" th:field="*{newPassword}">
+
+            <div style="margin-top:0.5rem">
+                <button class="btn btn-primary" type="submit">変更</button>
+            </div>
+        </form>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

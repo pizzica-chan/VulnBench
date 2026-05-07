@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('投稿一覧 (Vulnerable)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('vulnerable')}"></header>
+
+<main class="container">
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h1>投稿一覧 <small style="color:#b91c1c">[Vulnerable]</small></h1>
+        <div>
+            <span th:if="${currentUser != null}">
+                <a th:href="@{/vulnerable/users/{id}(id=${currentUser.id})}" th:text="${currentUser.username}"></a>
+                |
+                <a th:href="@{/vulnerable/posts/new}" class="btn btn-primary">新規投稿</a>
+                <a th:href="@{/vulnerable/logout}" class="btn btn-secondary">ログアウト</a>
+            </span>
+            <span th:if="${currentUser == null}">
+                <a th:href="@{/vulnerable/login}" class="btn btn-primary">ログイン</a>
+            </span>
+        </div>
+    </div>
+
+    <form method="get" th:action="@{/vulnerable/posts}" class="card">
+        <label>キーワード検索（タイトル・本文）</label>
+        <div class="row">
+            <input type="text" name="q" th:value="${q}">
+            <button class="btn btn-primary" type="submit">検索</button>
+        </div>
+        <p th:if="${q != null and !q.isEmpty()}" style="margin-top:0.5rem">
+            検索キーワード: <span th:utext="${q}"></span>
+            <small>（このキーワードは <code>th:utext</code> で出力されます。反射型 XSS のターゲット）</small>
+        </p>
+    </form>
+
+    <div th:if="${posts.empty}" class="card">投稿はまだありません。</div>
+
+    <div th:each="p : ${posts}" class="card">
+        <h3>
+            <a th:href="@{/vulnerable/posts/{id}(id=${p.id})}" th:text="${p.title}"></a>
+        </h3>
+        <div class="meta">
+            by <a th:href="@{/vulnerable/users/{id}(id=${p.userId})}" th:text="${p.authorName}"></a>
+            ・ <span th:text="${#temporals.format(p.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </div>
+        <div th:utext="${p.content}"></div>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

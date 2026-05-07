@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('投稿フォーム (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <h1 th:if="${post == null}">新規投稿 <small style="color:#047857">[Secure]</small></h1>
+    <h1 th:if="${post != null}">投稿編集 <small style="color:#047857">[Secure]</small></h1>
+
+    <form th:if="${post == null}"
+          th:action="@{/secure/posts/new}"
+          th:object="${postForm}"
+          method="post" class="card">
+        <label>タイトル</label>
+        <input type="text" th:field="*{title}">
+        <p th:if="${#fields.hasErrors('title')}" class="error" th:errors="*{title}"></p>
+
+        <label>本文（HTML はエスケープされます）</label>
+        <textarea th:field="*{content}"></textarea>
+        <p th:if="${#fields.hasErrors('content')}" class="error" th:errors="*{content}"></p>
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">投稿する</button>
+        </div>
+    </form>
+
+    <form th:if="${post != null}"
+          th:action="@{/secure/posts/{id}/update(id=${post.id})}"
+          th:object="${postForm}"
+          method="post" class="card">
+        <label>タイトル</label>
+        <input type="text" th:field="*{title}">
+        <p th:if="${#fields.hasErrors('title')}" class="error" th:errors="*{title}"></p>
+
+        <label>本文（HTML はエスケープされます）</label>
+        <textarea th:field="*{content}"></textarea>
+        <p th:if="${#fields.hasErrors('content')}" class="error" th:errors="*{content}"></p>
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">更新する</button>
+        </div>
+    </form>
+
+    <form th:if="${post != null}"
+          th:action="@{/secure/posts/{id}/delete(id=${post.id})}"
+          method="post"
+          onsubmit="return confirm('削除しますか？');"
+          class="card">
+        <button type="submit" class="btn btn-danger">削除（POST + CSRF + オーナー確認）</button>
+    </form>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

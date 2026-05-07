@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('SecApp - サイバーセキュリティ学習アプリ')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <h1>SecApp - サイバーセキュリティ学習アプリ</h1>
+    <p>同じ機能を持つ「脆弱版」と「対策版」を並べて触り、コードの差分から脆弱性対策の勘所を学べる Spring Boot アプリです。</p>
+
+    <div class="hero">
+        <div class="panel vuln">
+            <h2>VULNERABLE 版</h2>
+            <p>SQL 文字列連結、平文パスワード、CSRF 無防備、<code>th:utext</code> による XSS、IDOR、自前 Cookie 認証 — お手本のように脆弱です。</p>
+            <p><a th:href="@{/vulnerable/posts}">/vulnerable/posts へ</a></p>
+        </div>
+        <div class="panel sec">
+            <h2>SECURE 版</h2>
+            <p>パラメータ化クエリ、BCrypt、Spring Security、CSRF トークン、オーナー判定、セッション ID 再生成 — 同じ機能を安全に。</p>
+            <p><a th:href="@{/secure/posts}">/secure/posts へ</a></p>
+        </div>
+    </div>
+
+    <h2>学習の流れ</h2>
+    <ol>
+        <li>まず <a th:href="@{/docs}">脆弱性解説</a> を読み、攻撃の概念をつかむ</li>
+        <li>VULNERABLE 版で実際にペイロードを投入して攻撃を成立させる</li>
+        <li>SECURE 版で同じペイロードを試し、なぜ通らないかを確認する</li>
+        <li>ソースコードの <code>vulnerable/</code> パッケージと <code>secure/</code> パッケージを diff で比較する</li>
+    </ol>
+
+    <h2>初期ユーザー（両版共通の認証情報）</h2>
+    <table>
+        <tr><th>ユーザー名</th><th>パスワード</th><th>役割</th></tr>
+        <tr><td>admin</td><td>admin123</td><td>ADMIN</td></tr>
+        <tr><td>alice</td><td>wonderland</td><td>USER</td></tr>
+        <tr><td>bob</td><td>builder</td><td>USER</td></tr>
+    </table>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ユーザー詳細 (Secure)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('secure')}"></header>
+
+<main class="container">
+    <h1>
+        <span th:text="${user.username}"></span>
+        <small style="color:#047857">[Secure]</small>
+    </h1>
+    <div th:if="${flashMessage}" class="flash" th:text="${flashMessage}"></div>
+    <div th:if="${errorMessage}" class="error" th:text="${errorMessage}"></div>
+
+    <div class="card">
+        <p><strong>ID:</strong> <span th:text="${user.id}"></span></p>
+        <p><strong>役割:</strong> <span th:text="${user.role}"></span></p>
+        <p><strong>登録日時:</strong>
+            <span th:text="${#temporals.format(user.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
+        </p>
+        <p><strong>パスワード:</strong> BCrypt ハッシュ化済み（画面には表示しません）</p>
+    </div>
+
+    <div th:if="${isOwner}" class="card">
+        <h3>メール変更</h3>
+        <form th:action="@{/secure/users/{id}/update-email(id=${user.id})}" method="post">
+            <label>メールアドレス</label>
+            <input type="email" name="email" th:value="${user.email}">
+            <div style="margin-top:0.5rem">
+                <button class="btn btn-primary" type="submit">更新</button>
+            </div>
+        </form>
+    </div>
+
+    <div th:if="${isOwner}" class="card">
+        <h3>パスワード変更</h3>
+        <form th:action="@{/secure/users/{id}/change-password(id=${user.id})}"
+              th:object="${passwordForm}" method="post">
+            <label>現パスワード</label>
+            <input type="password" th:field="*{currentPassword}">
+            <p th:if="${#fields.hasErrors('currentPassword')}" class="error" th:errors="*{currentPassword}"></p>
+
+            <label>新パスワード</label>
+            <input type="password" th:field="*{newPassword}">
+            <p th:if="${#fields.hasErrors('newPassword')}" class="error" th:errors="*{newPassword}"></p>
+
+            <div style="margin-top:0.5rem">
+                <button class="btn btn-primary" type="submit">変更</button>
+            </div>
+        </form>
+    </div>
+
+    <p th:if="${!isOwner}">
+        <small>※他人のプロフィール情報は更新できません（オーナー判定）。</small>
+    </p>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('脆弱性解説 一覧')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <h1>脆弱性解説</h1>
+    <p>各脆弱性ごとに「攻撃ペイロード例」と「VULNERABLE / SECURE の実装の違い」をまとめています。</p>
+
+    <div th:each="v : ${vulnerabilities}" class="card">
+        <h3><a th:href="@{/docs/{id}(id=${v.id})}" th:text="${v.title}"></a></h3>
+        <p th:text="${v.summary}"></p>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

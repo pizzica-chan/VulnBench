@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('XSS')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar(null)}"></header>
+
+<main class="container">
+    <p><a th:href="@{/docs}">&larr; 一覧に戻る</a></p>
+    <h1>クロスサイトスクリプティング (XSS)</h1>
+
+    <h2>何が起きるのか</h2>
+    <p>ユーザーの入力をエスケープせずに HTML として出すと、<code>&lt;script&gt;</code> タグや <code>onerror</code> 属性が
+        ブラウザでそのまま実行されます。Cookie 窃取やフィッシング、ログイン状態の悪用など被害は多岐にわたります。</p>
+
+    <h2>蓄積型 XSS の再現手順（VULNERABLE 版）</h2>
+    <ol>
+        <li><a th:href="@{/vulnerable/login}">/vulnerable/login</a> で <code>alice / wonderland</code> としてログイン</li>
+        <li><a th:href="@{/vulnerable/posts/new}">/vulnerable/posts/new</a> に移動し、本文に
+            <code>&lt;script&gt;alert('XSS by ' + document.cookie)&lt;/script&gt;</code> を入れて投稿</li>
+        <li>投稿一覧 (<a th:href="@{/vulnerable/posts}">/vulnerable/posts</a>) や詳細を開くたびに
+            アラートが出る。Cookie が <code>HttpOnly=false</code> なので JS から読める</li>
+    </ol>
+
+    <h2>反射型 XSS の再現手順</h2>
+    <p>検索画面で <code>q</code> パラメータがそのまま <code>th:utext</code> で表示される。</p>
+    <p>例: <a th:href="@{/vulnerable/posts(q='<img src=x onerror=alert(1)>')}">/vulnerable/posts?q=&lt;img src=x onerror=alert(1)&gt;</a></p>
+
+    <h2>VULNERABLE 側のテンプレート</h2>
+    <pre>&lt;div th:utext="${p.content}"&gt;&lt;/div&gt;</pre>
+
+    <h2>SECURE 側のテンプレート</h2>
+    <pre>&lt;div th:text="${p.content}" style="white-space:pre-wrap"&gt;&lt;/div&gt;</pre>
+
+    <h2>対策のポイント</h2>
+    <ul>
+        <li>原則すべて <code>th:text</code>（自動 HTML エスケープ）を使う</li>
+        <li><code>th:utext</code> はサニタイズ済み HTML を意図して扱う場面に限定する</li>
+        <li>セッション Cookie は <code>HttpOnly</code> をオンにし、可能なら <code>Secure</code>, <code>SameSite=Lax</code> も付ける</li>
+        <li>HTTP ヘッダで Content-Security-Policy を併用すると更に強固</li>
+    </ul>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>

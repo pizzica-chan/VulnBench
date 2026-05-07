@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<head th:replace="~{fragments/layout :: head('ユーザー登録 (Vulnerable)')}"></head>
+<body>
+<header th:replace="~{fragments/layout :: topbar('vulnerable')}"></header>
+
+<main class="container">
+    <h1>ユーザー登録 <small style="color:#b91c1c">[Vulnerable]</small></h1>
+    <div th:if="${errorMessage}" class="error" th:text="${errorMessage}"></div>
+
+    <form th:action="@{/vulnerable/register}" th:object="${registerForm}" method="post" class="card">
+        <label>ユーザー名</label>
+        <input type="text" th:field="*{username}">
+
+        <label>パスワード</label>
+        <input type="password" th:field="*{password}">
+
+        <label>メールアドレス</label>
+        <input type="email" th:field="*{email}">
+
+        <div style="margin-top:1rem">
+            <button type="submit" class="btn btn-primary">登録</button>
+            <a class="btn btn-secondary" th:href="@{/vulnerable/login}">ログインへ</a>
+        </div>
+    </form>
+
+    <div class="card">
+        <h3>このフォームの危険ポイント</h3>
+        <ul>
+            <li>パスワードが <strong>平文</strong> のまま DB に保存されます。</li>
+            <li>入力値を SQL に直接連結して INSERT するため、ユーザー名やメールに <code>')</code> 系のペイロードを混ぜると DB を破壊できます。</li>
+        </ul>
+    </div>
+</main>
+
+<footer th:replace="~{fragments/layout :: footer}"></footer>
+</body>
+</html>
