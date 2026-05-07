@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
 <head th:replace="~{fragments/layout :: head('ユーザー詳細 (Secure)')}"></head>
 <body>
 <header th:replace="~{fragments/layout :: topbar('secure')}"></header>
@@ -50,8 +52,11 @@
         </form>
     </div>
 
-    <p th:if="${!isOwner}">
+    <p sec:authorize="isAuthenticated()" th:if="${!isOwner}">
         <small>※他人のプロフィール情報は更新できません（オーナー判定）。</small>
+    </p>
+    <p sec:authorize="!isAuthenticated()">
+        <small>ログインすると、自分のプロフィールでメール・パスワード変更ができます。</small>
     </p>
 </main>
 

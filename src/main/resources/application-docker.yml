@@ -1,0 +1,4 @@
+# Docker Compose 実行時のみ有効にする設定（コンテナ間はサービス名 mysql をホストとして参照）
+spring:
+  datasource:
+    url: jdbc:mysql://mysql:3306/secapp?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8&serverTimezone=Asia/Tokyo

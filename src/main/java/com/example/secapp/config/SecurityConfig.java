@@ -5,6 +5,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -30,6 +31,8 @@ public class SecurityConfig {
      * {@code /secure/**} にだけ適用するセキュアな {@link SecurityFilterChain} を構築して返す。
      * <p>
      * フォームログイン、CSRF 有効、セッション ID 再生成、BCrypt による DaoAuthentication を行う。
+     * 投稿・ユーザーの一覧／詳細の {@code GET} は教材上「脆弱版と同様に閲覧可能」にし、
+     * 新規投稿・編集・{@code POST} 系は認証必須とする。
      *
      * @param http HTTP セキュリティビルダ
      * @return 構築済みフィルタチェーン
@@ -42,13 +45,19 @@ public class SecurityConfig {
                 .securityMatcher("/secure/**")
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/secure/login", "/secure/register").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/secure/posts/new").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/secure/posts/*/edit").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/secure/posts").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/secure/posts/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/secure/users").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/secure/users/*").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
                         .loginPage("/secure/login")
                         .loginProcessingUrl("/secure/login")
                         .usernameParameter("username")
                         .passwordParameter("password")
-                        .defaultSuccessUrl("/secure/posts", true)
+                        .defaultSuccessUrl("/secure/posts", false)
                         .failureUrl("/secure/login?error")
                         .permitAll())
                 .logout(logout -> logout

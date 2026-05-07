@@ -1,0 +1,2 @@
+# Bash は WSL / Linux で CRLF だと shebang が壊れる
+*.sh text eol=lf

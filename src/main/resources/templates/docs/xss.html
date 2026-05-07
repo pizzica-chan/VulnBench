@@ -23,7 +23,9 @@
 
     <h2>反射型 XSS の再現手順</h2>
     <p>検索画面で <code>q</code> パラメータがそのまま <code>th:utext</code> で表示される。</p>
-    <p>例: <a th:href="@{/vulnerable/posts(q='<img src=x onerror=alert(1)>')}">/vulnerable/posts?q=&lt;img src=x onerror=alert(1)&gt;</a></p>
+    <th:block th:with="reflectedXssQ=${'<img src=x onerror=alert(1)>'}">
+    <p>例: <a th:href="@{/vulnerable/posts(q=${reflectedXssQ})}">/vulnerable/posts?q=&lt;img src=x onerror=alert(1)&gt;</a></p>
+    </th:block>
 
     <h2>VULNERABLE 側のテンプレート</h2>
     <pre>&lt;div th:utext="${p.content}"&gt;&lt;/div&gt;</pre>

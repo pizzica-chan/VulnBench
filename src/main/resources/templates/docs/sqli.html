@@ -20,8 +20,10 @@
         <li>送信すると、最初に見つかったユーザー（admin）として認証されてしまう</li>
     </ol>
 
-    <p>検索画面 (<a th:href="@{/vulnerable/posts(q=' UNION SELECT 1,2,3,4,5,username FROM vuln_users -- )}">/vulnerable/posts?q=...</a>) でも、
+    <th:block th:with="sqliSearchDemo=|' UNION SELECT 1,2,3,4,5,username FROM vuln_users -- |">
+    <p>検索画面 (<a th:href="@{/vulnerable/posts(q=${sqliSearchDemo})}">/vulnerable/posts?q=...</a>) でも、
         <code>q</code> を SQL に埋め込んでいるので UNION SELECT で別テーブルを引くこともできます。</p>
+    </th:block>
 
     <h2>VULNERABLE 側のコード</h2>
     <pre>// VulnerableUserDao#findForLogin

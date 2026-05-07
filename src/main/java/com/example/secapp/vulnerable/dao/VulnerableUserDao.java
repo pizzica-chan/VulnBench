@@ -32,6 +32,9 @@ public class VulnerableUserDao {
 
     /**
      * ユーザー名・パスワードでユーザを検索する（危険: 値が SQL に直接連結される）。
+     * <p>
+     * SQL インジェクション等で複数行が返った場合でも {@link org.springframework.dao.IncorrectResultSizeDataAccessException}
+     * にならないよう、先頭の 1 件だけをログイン成功として扱う（教材上、バイパスが 500 にならないようにする）。
      *
      * @param username ユーザー名
      * @param password パスワード（平文）
@@ -41,12 +44,11 @@ public class VulnerableUserDao {
         String sql = "SELECT * FROM vuln_users "
                 + "WHERE username = '" + username + "' "
                 + "AND password = '" + password + "'";
-        try {
-            User u = jdbc.queryForObject(sql, ROW_MAPPER);
-            return Optional.ofNullable(u);
-        } catch (EmptyResultDataAccessException e) {
+        List<User> list = jdbc.query(sql, ROW_MAPPER);
+        if (list.isEmpty()) {
             return Optional.empty();
         }
+        return Optional.of(list.get(0));
     }
 
     /**
@@ -66,17 +68,19 @@ public class VulnerableUserDao {
 
     /**
      * ユーザー名でユーザを検索する（危険: 値が SQL に直接連結される）。
+     * <p>
+     * 複数行が返る場合は先頭 1 件を採用する（{@link #findForLogin} と同様に 500 回避）。
      *
      * @param username ユーザー名
      * @return 該当ユーザがいれば {@link Optional}
      */
     public Optional<User> findByUsername(String username) {
         String sql = "SELECT * FROM vuln_users WHERE username = '" + username + "'";
-        try {
-            return Optional.ofNullable(jdbc.queryForObject(sql, ROW_MAPPER));
-        } catch (EmptyResultDataAccessException e) {
+        List<User> list = jdbc.query(sql, ROW_MAPPER);
+        if (list.isEmpty()) {
             return Optional.empty();
         }
+        return Optional.of(list.get(0));
     }
 
     /**

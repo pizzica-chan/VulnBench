@@ -47,7 +47,7 @@ public class SecureUserController {
      * 指定 ID のユーザプロフィールを表示する。
      *
      * @param id    ユーザー ID
-     * @param me    ログインユーザ（本人かどうかの表示に使用）
+     * @param me    ログインユーザ（未ログイン時は {@code null}。本人かどうかの表示に使用）
      * @param model ビューモデル
      * @return 詳細または一覧へ
      */
@@ -58,7 +58,8 @@ public class SecureUserController {
         User user = userDao.findById(id).orElse(null);
         if (user == null) return "redirect:/secure/users";
         model.addAttribute("user", user);
-        model.addAttribute("isOwner", me.getUserId().equals(user.getId()));
+        boolean owner = me != null && me.getUserId().equals(user.getId());
+        model.addAttribute("isOwner", owner);
         model.addAttribute("passwordForm", new PasswordChangeForm());
         return "secure/user_detail";
     }
