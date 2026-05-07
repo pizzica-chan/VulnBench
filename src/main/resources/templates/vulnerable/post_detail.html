@@ -27,7 +27,27 @@
             <a th:href="@{/vulnerable/users/{id}(id=${c.userId})}" th:text="${c.authorName}"></a>
             ・ <span th:text="${#temporals.format(c.createdAt, 'yyyy-MM-dd HH:mm')}"></span>
         </div>
-        <div th:utext="${c.content}"></div>
+
+        <div th:if="${editCommentId == null or editCommentId != c.id}" th:utext="${c.content}"></div>
+
+        <form th:if="${editCommentId != null and editCommentId == c.id}"
+              th:action="@{/vulnerable/posts/{postId}/comments/{commentId}/update(postId=${post.id},commentId=${c.id})}"
+              method="post" style="margin-top:0.25rem">
+            <textarea name="content" rows="3" style="width:100%" th:text="${c.content}"></textarea>
+            <div style="margin-top:0.5rem" class="row">
+                <button type="submit" class="btn btn-primary">更新</button>
+                <a class="btn btn-secondary" th:href="@{/vulnerable/posts/{id}(id=${post.id})}">キャンセル</a>
+            </div>
+        </form>
+
+        <div style="margin-top:0.5rem" class="row" th:if="${manageableCommentIds != null and manageableCommentIds.contains(c.id)}">
+            <a class="btn btn-secondary"
+               th:href="@{/vulnerable/posts/{id}(id=${post.id},editCommentId=${c.id})}"
+               th:if="${editCommentId == null or editCommentId != c.id}">編集</a>
+            <a class="btn btn-danger"
+               th:href="@{/vulnerable/posts/{postId}/comments/{commentId}/delete(postId=${post.id},commentId=${c.id})}"
+               onclick="return confirm('コメントを削除しますか？')">削除（GET で削除！）</a>
+        </div>
     </div>
 
     <form th:if="${currentUser != null}"

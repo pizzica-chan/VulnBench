@@ -27,7 +27,7 @@ public class DocsController {
             Map.of("id", "csrf",    "title", "クロスサイトリクエストフォージェリ (CSRF)",
                     "summary", "GET で削除を受け付けてしまう罠"),
             Map.of("id", "auth",    "title", "パスワード平文保存",
-                    "summary", "DB に平文を入れたときの被害範囲"),
+                    "summary", "DB に平文を入れたときの被害範囲（脆弱版は ADMIN にだけ一覧リンクだが URL は無認可）"),
             Map.of("id", "session", "title", "セッション管理不備",
                     "summary", "自前 Cookie で userId を持たせるとどうなるか"),
             Map.of("id", "idor",    "title", "認可不備 (IDOR)",
@@ -49,12 +49,11 @@ public class DocsController {
     /**
      * 個別脆弱性ページのビューを返す。存在しない {@code id} の場合は一覧へリダイレクトする。
      *
-     * @param id    ページ識別子（例 {@code sqli}）
-     * @param model 未使用だが MVC 標準シグネチャのため保持
+     * @param id ページ識別子（例 {@code sqli}）
      * @return テンプレート {@code docs/{id}} または {@code redirect:/docs}
      */
     @GetMapping("/{id}")
-    public String detail(@PathVariable String id, Model model) {
+    public String detail(@PathVariable String id) {
         boolean exists = VULN_LIST.stream().anyMatch(v -> v.get("id").equals(id));
         if (!exists) return "redirect:/docs";
         return "docs/" + id;

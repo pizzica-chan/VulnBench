@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
 <head th:fragment="head(title)">
     <meta charset="UTF-8">
     <title th:text="${title} ?: 'SecApp'">SecApp</title>
@@ -7,17 +9,80 @@
 </head>
 <body>
 
-<header th:fragment="topbar(mode)" class="topbar">
-    <a class="brand" th:href="@{/}">SecApp - サイバーセキュリティ学習アプリ</a>
-    <nav class="nav">
-        <span th:if="${mode == 'vulnerable'}" class="badge badge-vuln">VULNERABLE MODE</span>
-        <span th:if="${mode == 'secure'}"     class="badge badge-sec">SECURE MODE</span>
-        <span th:if="${mode == null}"         class="badge badge-neutral">HOME</span>
-        <a th:href="@{/}">ホーム</a>
-        <a th:href="@{/docs}">脆弱性解説</a>
-        <a th:href="@{/vulnerable/posts}">脆弱版</a>
-        <a th:href="@{/secure/posts}">対策版</a>
-    </nav>
+<header th:fragment="topbar(mode)" class="site-header">
+    <div class="site-header-global">
+        <a class="brand" th:href="@{/}">SecApp - サイバーセキュリティ学習アプリ</a>
+        <nav class="nav nav-global">
+            <span th:if="${mode == 'vulnerable'}" class="badge badge-vuln">VULNERABLE MODE</span>
+            <span th:if="${mode == 'secure'}" class="badge badge-sec">SECURE MODE</span>
+            <span th:if="${mode == null}" class="badge badge-neutral">HOME</span>
+            <a th:href="@{/}">ホーム</a>
+            <a th:href="@{/docs}">脆弱性解説</a>
+            <a th:href="@{/vulnerable/posts}">脆弱版サイト</a>
+            <a th:href="@{/secure/posts}">対策版サイト</a>
+        </nav>
+    </div>
+    <div class="site-header-context" th:if="${mode != null}">
+        <div class="site-header-context-inner">
+            <div class="header-context-brand">
+                <strong class="header-context-title" th:if="${mode == 'vulnerable'}">脆弱版アプリ</strong>
+                <strong class="header-context-title" th:if="${mode == 'secure'}">対策版アプリ</strong>
+                <span class="header-context-desc">
+                    投稿一覧・新規投稿・ログイン／登録・プロフィールへすぐ移動できます。（上段はホーム・解説・別サイトへの入口です）
+                </span>
+            </div>
+            <div class="header-context-nav-wrap">
+                <nav class="nav nav-context nav-context-bar"
+                     th:if="${mode == 'vulnerable'}"
+                     aria-label="脆弱版アプリ内">
+                    <span class="nav-context-cluster">
+                        <a th:href="@{/vulnerable/posts}">投稿一覧</a>
+                        <a th:if="${currentUser != null}"
+                           th:href="@{/vulnerable/posts/new}">新規投稿</a>
+                    </span>
+                    <span class="nav-context-sep">·</span>
+                    <span class="nav-context-cluster" th:if="${currentUser == null}">
+                        <a th:href="@{/vulnerable/login}">ログイン</a>
+                        <a th:href="@{/vulnerable/register}">アカウント登録</a>
+                    </span>
+                    <span class="nav-context-cluster" th:if="${currentUser != null}">
+                        <a th:href="@{/vulnerable/users/{id}(id=${currentUser.id})}">マイプロフィール</a>
+                        <a th:if="${currentUser.role == 'ADMIN'}"
+                           th:href="@{/vulnerable/users}">ユーザー一覧</a>
+                    </span>
+                    <span class="nav-context-sep" th:if="${currentUser != null}">·</span>
+                    <span class="nav-context-cluster" th:if="${currentUser != null}">
+                        <a th:href="@{/vulnerable/logout}">ログアウト</a>
+                    </span>
+                </nav>
+                <nav class="nav nav-context nav-context-bar"
+                     th:if="${mode == 'secure'}"
+                     aria-label="対策版アプリ内">
+                    <span class="nav-context-cluster">
+                        <a th:href="@{/secure/posts}">投稿一覧</a>
+                        <a sec:authorize="isAuthenticated()"
+                           th:href="@{/secure/posts/new}">新規投稿</a>
+                    </span>
+                    <span class="nav-context-sep">·</span>
+                    <span class="nav-context-cluster" sec:authorize="!isAuthenticated()">
+                        <a th:href="@{/secure/login}">ログイン</a>
+                        <a th:href="@{/secure/register}">アカウント登録</a>
+                    </span>
+                    <span class="nav-context-cluster" sec:authorize="isAuthenticated()">
+                        <a th:href="@{/secure/users/{id}(id=${#authentication.principal.userId})}">マイプロフィール</a>
+                        <a sec:authorize="hasRole('ADMIN')"
+                           th:href="@{/secure/users}">ユーザー一覧</a>
+                    </span>
+                    <span class="nav-context-sep" sec:authorize="isAuthenticated()">·</span>
+                    <span class="nav-context-cluster" sec:authorize="isAuthenticated()">
+                        <form th:action="@{/secure/logout}" method="post" class="nav-context-logout-form">
+                            <button type="submit" class="btn-logout">ログアウト</button>
+                        </form>
+                    </span>
+                </nav>
+            </div>
+        </div>
+    </div>
 </header>
 
 <footer th:fragment="footer" class="footer">

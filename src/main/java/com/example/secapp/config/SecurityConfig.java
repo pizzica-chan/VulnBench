@@ -31,8 +31,9 @@ public class SecurityConfig {
      * {@code /secure/**} にだけ適用するセキュアな {@link SecurityFilterChain} を構築して返す。
      * <p>
      * フォームログイン、CSRF 有効、セッション ID 再生成、BCrypt による DaoAuthentication を行う。
-     * 投稿・ユーザーの一覧／詳細の {@code GET} は教材上「脆弱版と同様に閲覧可能」にし、
-     * 新規投稿・編集・{@code POST} 系は認証必須とする。
+     * ユーザープロフィール {@code GET /secure/users/{id}} は教材上閲覧可能にする一方、
+     * <strong>ユーザー一覧 {@code GET /secure/users} は ADMIN のみ</strong>とする。
+     * 投稿一覧／詳細の {@code GET} は匿名可。新規投稿・編集・{@code POST} 系は認証必須とする。
      *
      * @param http HTTP セキュリティビルダ
      * @return 構築済みフィルタチェーン
@@ -49,7 +50,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/secure/posts/*/edit").authenticated()
                         .requestMatchers(HttpMethod.GET, "/secure/posts").permitAll()
                         .requestMatchers(HttpMethod.GET, "/secure/posts/*").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/secure/users").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/secure/users").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/secure/users/*").permitAll()
                         .anyRequest().authenticated())
                 .formLogin(form -> form
@@ -77,7 +78,10 @@ public class SecurityConfig {
     /**
      * {@code /secure} 以外のパス向けに、教材用の寛容な {@link SecurityFilterChain} を構築して返す。
      * <p>
-     * CSRF を無効化し全リクエストを許可する（脆弱版サイト用）。
+     * CSRF を無効化し全リクエストを許可する（脆弱版サイト・トップ・{@code /docs/**} など用）。
+     * {@code @Order(1)} の {@link #secureFilterChain} が {@code /secure/**} を先取りするため、
+     * このチェーンには実際にはそれ以外のパスだけが到達する。{@code securityMatcher("/**")}
+     * で「全 URL を対象とする寛容チェーン」であることをコード上も明示する。
      *
      * @param http HTTP セキュリティビルダ
      * @return 構築済みフィルタチェーン
@@ -87,6 +91,7 @@ public class SecurityConfig {
     @Order(2)
     public SecurityFilterChain permissiveFilterChain(HttpSecurity http) throws Exception {
         http
+                .securityMatcher("/**")
                 .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())

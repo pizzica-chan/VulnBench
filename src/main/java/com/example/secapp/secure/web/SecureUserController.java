@@ -32,7 +32,7 @@ public class SecureUserController {
     private final PasswordEncoder passwordEncoder;
 
     /**
-     * 全ユーザの一覧画面を返す。
+     * 全ユーザの一覧画面を返す（{@link SecurityConfig} により ADMIN のみ {@code GET} 可能）。
      *
      * @param model ビューモデル
      * @return ビュー {@code secure/users}
@@ -56,7 +56,7 @@ public class SecureUserController {
                          @AuthenticationPrincipal SecurePrincipal me,
                          Model model) {
         User user = userDao.findById(id).orElse(null);
-        if (user == null) return "redirect:/secure/users";
+        if (user == null) return "redirect:/secure/posts";
         model.addAttribute("user", user);
         boolean owner = me != null && me.getUserId().equals(user.getId());
         model.addAttribute("isOwner", owner);

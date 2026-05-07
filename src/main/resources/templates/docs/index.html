@@ -13,7 +13,7 @@
         <ol>
             <li><strong>アプリにアクセスできること。</strong> 例: ブラウザで <code>http://localhost:8080</code> を開き、トップページが表示される。</li>
             <li><strong>手順の「脆弱版」</strong>は URL が <code>/vulnerable/...</code> の画面です。<strong>対策版</strong>は <code>/secure/...</code>。まず脆弱版で挙動を確認し、同じ操作を対策版で試して「防げる」ことを確認するのがおすすめです。</li>
-            <li><strong>初期ログイン情報</strong>（初期データ投入直後の例。ID は Vulnerable 版のユーザ一覧でも確認できます）:
+            <li><strong>初期ログイン情報</strong>（初期データ投入直後の例。脆弱版では <code>/vulnerable/users</code> を URL 直打ちすると一覧で ID を確認できるほか、ADMIN でログインするとヘッダ<strong>2 段目</strong>にユーザー一覧リンクがあります）:
                 <table class="card" style="margin-top:0.5rem; padding:0.5rem 1rem">
                     <tr><th>ユーザー名</th><th>パスワード</th><th>役割</th><th>想定 ID（参考）</th></tr>
                     <tr><td><code>admin</code></td><td><code>admin123</code></td><td>ADMIN</td><td>1</td></tr>

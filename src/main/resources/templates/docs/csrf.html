@@ -20,10 +20,18 @@
         <li><strong>方法 A（確実・手順が短い）:</strong> ログインしたまま <strong>新しいタブ</strong>を開き、アドレスバーに
             <pre>http://localhost:8080/vulnerable/posts/1/delete</pre>
             のように <strong><code>/vulnerable/posts/<em>{id}</em>/delete</code></strong> を入力して Enter（<code>{id}</code> は手順2で決めた値）。確認ダイアログは出ず、即リダイレクトされ投稿が消えます。
+            <br><small>同じ要領で <code>/vulnerable/posts/{postId}/comments/{commentId}/delete</code> もコメント単位で GET 削除が成立します（<a th:href="@{/docs/idor}">IDOR</a>参照）。</small>
         </li>
-        <li><strong>方法 B（CSRF の典型イメージ・条件付き）:</strong> 次のような HTML を「別の HTML ファイル」に保存し、ログイン済みの同じブラウザで開く。
-            <pre>&lt;img src="http://localhost:8080/vulnerable/posts/1/delete" width="0" height="0" alt=""&gt;</pre>
-            画像の GET リクエストに Cookie が付くかどうかは、ブラウザの Cookie の <code>SameSite</code> などに依存します。<strong>再現しない場合は方法 A で「GET 削除」の危険性は同等に確認できます。</strong>
+        <li><strong>方法 B（CSRF の典型イメージ・自動 submit フォーム）:</strong> 次のような HTML を <strong>ローカルの別ファイル（例: <code>attacker.html</code>）</strong>として保存し、ログイン済みの同じブラウザで開く。ページを開いた瞬間にスクリプトがフォームを送信し、<strong>top-level navigation として</strong> <code>/vulnerable/posts/1/delete</code> へ遷移する。
+            <pre>&lt;!doctype html&gt;
+&lt;html&gt;&lt;body&gt;
+&lt;p&gt;ただのキャンペーンページ……&lt;/p&gt;
+&lt;form id="x" action="http://localhost:8080/vulnerable/posts/1/delete" method="get"&gt;&lt;/form&gt;
+&lt;script&gt;document.getElementById('x').submit();&lt;/script&gt;
+&lt;/body&gt;&lt;/html&gt;</pre>
+            <p style="margin-top:0.25rem"><small>
+                最近のブラウザは Cookie が既定で <code>SameSite=Lax</code> のため、<strong>外部オリジンの <code>&lt;img&gt;</code> など「サブリソース GET」には Cookie が付かない</strong>ことがあります。一方で <strong><code>&lt;form&gt;</code> の submit や <code>&lt;a&gt;</code> クリックといった top-level navigation の GET には Cookie が付与される</strong>ため、上記のフォーム自動 submit パターンが教材では再現性が高いです。それでも遷移時の確認ダイアログ等で止まる場合は <strong>方法 A</strong> で「GET 削除」の危険性は同等に確認できます。
+            </small></p>
         </li>
         <li><strong>GET による更新:</strong> ログイン不要な実装のため、同様にアドレスバーへ
             <pre>http://localhost:8080/vulnerable/posts/1/update?title=hacked&amp;content=hacked</pre>

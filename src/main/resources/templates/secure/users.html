@@ -1,11 +1,15 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org" lang="ja">
+<html xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security"
+      lang="ja">
 <head th:replace="~{fragments/layout :: head('ユーザー一覧 (Secure)')}"></head>
 <body>
 <header th:replace="~{fragments/layout :: topbar('secure')}"></header>
 
 <main class="container">
-    <h1>ユーザー一覧 <small style="color:#047857">[Secure]</small></h1>
+    <h1>ユーザー一覧 <small style="color:#047857">[Secure]</small>
+        <small sec:authorize="hasRole('ADMIN')" style="font-weight:normal;color:#047857">（ADMIN のみ閲覧可能）</small>
+    </h1>
     <table class="card" style="padding:0">
         <tr><th>ID</th><th>ユーザー名</th><th>メール</th><th>役割</th></tr>
         <tr th:each="u : ${users}">

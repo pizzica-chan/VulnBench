@@ -6,6 +6,11 @@
 
 <main class="container">
     <h1>ユーザー一覧 <small style="color:#b91c1c">[Vulnerable]</small></h1>
+    <p class="card" style="background:#fff7ed;border-color:#fdba74">
+        <strong>教材メモ:</strong> ナビの「ユーザー一覧」は <strong>ADMIN ログイン時だけ</strong>表示しますが、
+        サーバ側にはロールチェックがありません。<code>/vulnerable/users</code> を URL 直打ちすると、
+        一般ユーザ・未ログインでもこの画面を開けます（画面だけ ADMIN 向けに見せている「セキュリティ・バイ・オブスキュリティ」）。
+    </p>
     <table class="card" style="padding:0">
         <tr><th>ID</th><th>ユーザー名</th><th>メール</th><th>役割</th><th></th></tr>
         <tr th:each="u : ${users}">

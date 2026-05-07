@@ -17,8 +17,9 @@
 ## 必要環境
 
 - **おすすめ:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Windows では WSL2 バックエンド推奨）
-- **自動起動スクリプト:** `scripts/` 以下（後述）
-- **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）
+- **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。
+- **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
+- **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。
 
 ## 起動手順（自動化）
 
@@ -72,7 +73,7 @@ chmod +x scripts/wsl-up.sh scripts/wsl-down.sh
 - **DB はコンテナとともに捨てる前提です。** `docker-compose.yml` では MySQL のデータディレクトリを **tmpfs** に載せており、コンテナの**再作成**や**再起動**で空になります。起動後は Flyway と `DataSeeder` で毎回同じ初期スキーマ・初期データになります。
 - **`wsl-up.sh` と `docker-desktop-up.ps1`** は `docker compose up --build -d --force-recreate` を実行するため、これらのスクリプトで起動するたびに **クリーンな DB** になります。
 - 手動で `docker compose up -d` だけを使い、**すでに動いている MySQL コンテナを止めずに**再実行した場合は、そのコンテナ内のデータはそのままです（MySQL を止める・作り直すとリセットされます）。
-- 古い構成の **名前付きボリューム `secapp-mysql-data`** が環境に残っている場合は、未使用なら `docker volume rm` で削除してかまいません（現在の compose では定義していません）。
+- 古い構成の **名前付きボリューム `secapp-mysql-data`** が環境に残っているなら、**`docker volume rm secapp-mysql-data` で削除推奨**です（現在の compose では定義しておらず、放置するとディスクを食うだけ＋古い学習データが残って混乱の原因になります）。`docker volume ls | findstr secapp` などで確認できます。
 
 ### WSL で起動する
 
@@ -187,10 +188,10 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 /vulnerable/posts/{id}     詳細 + コメント
 /vulnerable/posts/{id}/edit
 /vulnerable/posts/{id}/delete
-/vulnerable/users          ユーザー一覧
+/vulnerable/users          ユーザー一覧（ADMIN にだけヘッダ2段目に表示／サーバは無認可で URL 直打ち可）
 /vulnerable/users/{id}     プロフィール
 
-/secure/...                上記と同じパス構成
+/secure/...                上記とほぼ同じパス構成（一覧 `/secure/users` は ADMIN のみ）
 ```
 
 ## ディレクトリ構成（重要部分）
@@ -233,9 +234,9 @@ src/main/resources/
 | 2 | **蓄積型 XSS** | `alice` / `wonderland` でログイン → 新規投稿の本文に `<script>alert(document.cookie)</script>`。**攻撃成功の目安:** 一覧や詳細でスクリプトが実行されアラートが出る。 |
 | 3 | **反射型 XSS** | `/vulnerable/posts` の検索に `<img src=x onerror=alert(1)>` を入力して検索。**攻撃成功の目安:** 一覧表示時に `alert(1)` が動く。 |
 | 4 | **CSRF / GET 削除** | ログイン後、新しいタブのアドレスバーに `http://localhost:8080/vulnerable/posts/1/delete` を入力（投稿 ID は一覧で確認）。**攻撃成功の目安:** 確認なしで投稿が消える。 |
-| 5 | **パスワード平文** | `/vulnerable/users` で一覧に平文パスワードが載る。**攻撃成功の目安:** `admin123` などがそのまま読める（対策版では表示されない）。 |
+| 5 | **パスワード平文** | ヘッダ2段目に一覧が出ない一般ユーザでも、`http://localhost:8080/vulnerable/users` を直打ち。**攻撃成功の目安:** `admin123` など平文が一覧に載る。対策版は一覧が **ADMIN のみ**（ほかはログイン要求または拒否）。 |
 | 6 | **セッション改ざん** | `bob` / `builder` でログイン → DevTools の Cookie で `vuln_uid` を `1` に変更 → 一覧を再読み込み。**攻撃成功の目安:** 表示が `admin` に切り替わる。 |
-| 7 | **IDOR** | `bob` でログインしたまま `http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com` にアクセス。**攻撃成功の目安:** ユーザー一覧で admin のメールが書き換わっている。 |
+| 7 | **IDOR** | `bob` でログインしたまま `http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com` にアクセス。**攻撃成功の目安:** 一覧 URL を開くか admin プロフィールで、admin のメールが書き換わっている。 |
 
 同じ URL・操作を `/secure/...` に置き換えると、パラメータ化クエリ・エスケープ・CSRF・BCrypt・セッション・オーナー判定などにより成立しません。
 
@@ -244,3 +245,4 @@ src/main/resources/
 - これは学習用アプリです。本番運用には絶対に使わないでください。
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
 - インターネットに公開しないこと。ローカル環境だけで動かしてください。
+- `docker-compose.yml` には MySQL の **学習用クレデンシャル（`secapp` / `rootpass`）** が平文で書かれています。教材限定の前提で、**他環境への流用は避けて**ください。

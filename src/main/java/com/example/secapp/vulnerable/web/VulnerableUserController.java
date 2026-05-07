@@ -28,6 +28,9 @@ public class VulnerableUserController {
 
     /**
      * 全ユーザ一覧を表示する（平文パスワードなどが画面に載る）。
+     * <p>
+     * 画面上のナビでは ADMIN にだけ「ユーザー一覧」リンクを出すが、
+     * <strong>このハンドラ自体にはロール検証がなく</strong> URL を知っていれば誰でも閲覧できる（認可不備の教材）。
      *
      * @param req   リクエスト
      * @param model ビューモデル

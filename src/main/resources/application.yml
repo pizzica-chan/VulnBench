@@ -21,6 +21,7 @@ spring:
 server:
   port: 8080
   error:
+    # 学習用に詳細なエラーメッセージを画面に出す。本番では `never` を推奨。
     include-message: always
     include-stacktrace: never
 

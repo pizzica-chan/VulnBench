@@ -2,11 +2,13 @@ package com.example.secapp.secure.dao;
 
 import com.example.secapp.common.entity.Comment;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Secure 版のコメント DAO。
@@ -51,5 +53,43 @@ public class SecureCommentDao {
         jdbc.update(
                 "INSERT INTO sec_comments (post_id, user_id, content) VALUES (?, ?, ?)",
                 postId, userId, content);
+    }
+
+    /**
+     * 主キーでコメントを 1 件取得する（プレースホルダ）。
+     *
+     * @param id コメント ID
+     * @return 該当があれば {@link Optional}
+     */
+    public Optional<Comment> findById(Long id) {
+        try {
+            Comment c = jdbc.queryForObject(
+                    "SELECT c.id, c.post_id, c.user_id, c.content, c.created_at, u.username AS author_name "
+                            + "FROM sec_comments c JOIN sec_users u ON u.id = c.user_id "
+                            + "WHERE c.id = ?",
+                    ROW_MAPPER, id);
+            return Optional.ofNullable(c);
+        } catch (EmptyResultDataAccessException e) {
+            return Optional.empty();
+        }
+    }
+
+    /**
+     * コメント本文を更新する（プレースホルダ）。認可はサービス層で行う前提。
+     *
+     * @param id      コメント ID
+     * @param content 新しい本文
+     */
+    public void update(Long id, String content) {
+        jdbc.update("UPDATE sec_comments SET content = ? WHERE id = ?", content, id);
+    }
+
+    /**
+     * コメントを削除する（プレースホルダ）。認可はサービス層で行う前提。
+     *
+     * @param id コメント ID
+     */
+    public void delete(Long id) {
+        jdbc.update("DELETE FROM sec_comments WHERE id = ?", id);
     }
 }

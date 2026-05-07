@@ -7,6 +7,7 @@ import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Vulnerable 版のコメント DAO。
@@ -51,6 +52,41 @@ public class VulnerableCommentDao {
     public void create(Long postId, Long userId, String content) {
         String sql = "INSERT INTO vuln_comments (post_id, user_id, content) VALUES ("
                 + postId + ", " + userId + ", '" + content + "')";
+        jdbc.update(sql);
+    }
+
+    /**
+     * 主キーで 1 件取得する（危険: ID が SQL に直接連結される）。
+     *
+     * @param id コメント ID
+     * @return 該当があれば {@link Optional}
+     */
+    public Optional<Comment> findById(Long id) {
+        String sql = "SELECT c.id, c.post_id, c.user_id, c.content, c.created_at, u.username AS author_name "
+                + "FROM vuln_comments c JOIN vuln_users u ON u.id = c.user_id "
+                + "WHERE c.id = " + id;
+        List<Comment> list = jdbc.query(sql, ROW_MAPPER);
+        return list.isEmpty() ? Optional.empty() : Optional.of(list.get(0));
+    }
+
+    /**
+     * コメント本文を更新する（危険: 入力連結／認可なし）。
+     *
+     * @param id      コメント ID
+     * @param content 新しい本文
+     */
+    public void update(Long id, String content) {
+        String sql = "UPDATE vuln_comments SET content = '" + content + "' WHERE id = " + id;
+        jdbc.update(sql);
+    }
+
+    /**
+     * コメントを削除する（危険: 認可なし／GET でも削除を許す呼び出し側と組み合わせる）。
+     *
+     * @param id コメント ID
+     */
+    public void delete(Long id) {
+        String sql = "DELETE FROM vuln_comments WHERE id = " + id;
         jdbc.update(sql);
     }
 }

@@ -7,17 +7,11 @@
 <header th:replace="~{fragments/layout :: topbar('secure')}"></header>
 
 <main class="container">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:0.5rem;">
         <h1>投稿一覧 <small style="color:#047857">[Secure]</small></h1>
-        <div style="display:flex; gap:0.5rem; align-items:center;" sec:authorize="isAuthenticated()">
-            <a th:href="@{/secure/posts/new}" class="btn btn-primary">新規投稿</a>
-            <form th:action="@{/secure/logout}" method="post" style="display:inline">
-                <button class="btn btn-secondary" type="submit">ログアウト</button>
-            </form>
-        </div>
-        <div style="display:flex; gap:0.5rem; align-items:center;" sec:authorize="!isAuthenticated()">
-            <a th:href="@{/secure/login}" class="btn btn-secondary">ログイン</a>
-        </div>
+        <p class="meta" style="margin:0" sec:authorize="isAuthenticated()">
+            <span sec:authentication="name">user</span> でログイン中（操作はヘッダ 2 段目）
+        </p>
     </div>
 
     <form method="get" th:action="@{/secure/posts}" class="card">

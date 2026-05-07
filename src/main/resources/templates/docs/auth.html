@@ -14,11 +14,12 @@
 
     <h2>再現手順（VULNERABLE 版）</h2>
     <ol>
-        <li>ブラウザで <code>http://localhost:8080/vulnerable/users</code> を開く（未ログインのままでアクセス可能）。</li>
+        <li><strong>ナビの挙動:</strong> 一般ユーザ（例: <code>alice</code>）でログインしても、ヘッダ<strong>2 段目（脆弱版アプリ内・アカウント関連）</strong>に「ユーザー一覧」は出ません（<strong>ADMIN のみ表示</strong>）。</li>
+        <li><strong>サーバ側の穴:</strong> それでもブラウザのアドレスバーに <code>http://localhost:8080/vulnerable/users</code> と入力して Enter すると、<strong>未ログイン・一般ユーザでも一覧が開く</strong>（ナビを隠しただけで認可していない典型的な落とし穴）。</li>
         <li>一覧の各行に、ユーザー名・メールに加え <strong>パスワード列に平文</strong>（例: <code>admin123</code>）がそのまま載っていることを確認する。</li>
         <li>ユーザ名をクリックするとプロフィールへ遷移し、そこでも平文パスワードが表示される。</li>
         <li><strong>攻撃成功の目安（情報漏洩のデモ）:</strong> 画面だけでクレデンシャルが読み取れる。一覧・プロフィールのいずれでも、保存パスワードが平文のまま表示される。</li>
-        <li><strong>対策版で比較:</strong> <code>http://localhost:8080/secure/users</code> は閲覧用に匿名で開けますが、一覧・詳細とも <strong>パスワードは表示されない</strong>（BCrypt ハッシュも画面に出さない）。</li>
+        <li><strong>対策版で比較:</strong> <code>http://localhost:8080/secure/users</code> は <strong>ADMIN ログイン時のみ</strong>開ける（匿名・一般ユーザはログインへ誘導されるか 403）。一覧にはパスワードは出さず、プロフィール詳細 <code>/secure/users/{id}</code> でも BCrypt ハッシュは画面に出さない。</li>
         <li><strong>組み合わせ:</strong> <a th:href="@{/docs/sqli}">SQL インジェクション</a>で DB から同じテーブルを読めた場合、平文パスワードが一括で漏洩するリスクを想像する。</li>
     </ol>
 

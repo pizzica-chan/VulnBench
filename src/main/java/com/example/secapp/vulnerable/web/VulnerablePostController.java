@@ -19,8 +19,10 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Vulnerable 版の投稿・コメント画面コントローラ。
@@ -93,16 +95,25 @@ public class VulnerablePostController {
      * @return 詳細ビューまたは一覧へリダイレクト
      */
     @GetMapping("/{id}")
-    public String detail(@PathVariable Long id, HttpServletRequest req, Model model) {
+    public String detail(@PathVariable Long id,
+                         @RequestParam(value = "editCommentId", required = false) Long editCommentId,
+                         HttpServletRequest req,
+                         Model model) {
         Post post = postDao.findById(id).orElse(null);
         if (post == null) return "redirect:/vulnerable/posts";
         List<Comment> comments = commentDao.findByPostId(id);
         User me = auth.currentUser(req).orElse(null);
+        Set<Long> manageableCommentIds = new HashSet<>();
+        for (Comment c : comments) {
+            if (canManageComment(me, c)) manageableCommentIds.add(c.getId());
+        }
         model.addAttribute("post", post);
         model.addAttribute("comments", comments);
         model.addAttribute("commentForm", new CommentForm());
         model.addAttribute("currentUser", me);
         model.addAttribute("canManagePost", canManagePost(me, post));
+        model.addAttribute("manageableCommentIds", manageableCommentIds);
+        model.addAttribute("editCommentId", editCommentId);
         return "vulnerable/post_detail";
     }
 
@@ -189,6 +200,36 @@ public class VulnerablePostController {
     }
 
     /**
+     * GET でコメント本文を更新する（危険: CSRF 容易／認可なし／文字列連結 SQL）。
+     *
+     * @param postId    投稿 ID
+     * @param commentId コメント ID
+     * @param content   新しい本文
+     * @return 詳細へリダイレクト
+     */
+    @PostMapping("/{postId}/comments/{commentId}/update")
+    public String updateComment(@PathVariable Long postId,
+                                @PathVariable Long commentId,
+                                @RequestParam String content) {
+        commentDao.update(commentId, content);
+        return "redirect:/vulnerable/posts/" + postId;
+    }
+
+    /**
+     * GET でコメントを削除する（危険: CSRF / IDOR）。
+     *
+     * @param postId    投稿 ID
+     * @param commentId コメント ID
+     * @return 詳細へリダイレクト
+     */
+    @GetMapping("/{postId}/comments/{commentId}/delete")
+    public String deleteComment(@PathVariable Long postId,
+                                @PathVariable Long commentId) {
+        commentDao.delete(commentId);
+        return "redirect:/vulnerable/posts/" + postId;
+    }
+
+    /**
      * 画面の「編集・削除」ボタンを出してよいかのみを判定する（サーバ側の認可とは別）。
      * <p>
      * 投稿者本人または ADMIN のとき {@code true}。オーナー検証なしの API と組み合わせて IDOR を学ぶ前提。
@@ -205,5 +246,22 @@ public class VulnerablePostController {
             return true;
         }
         return current.getId().equals(post.getUserId());
+    }
+
+    /**
+     * 画面の「コメント編集・削除」リンクを出してよいかのみを判定する（サーバ側の認可とは別）。
+     *
+     * @param current ログインユーザ
+     * @param comment 対象コメント
+     * @return コメント主または ADMIN なら {@code true}
+     */
+    private static boolean canManageComment(User current, Comment comment) {
+        if (current == null || comment == null) {
+            return false;
+        }
+        if ("ADMIN".equals(current.getRole())) {
+            return true;
+        }
+        return current.getId().equals(comment.getUserId());
     }
 }

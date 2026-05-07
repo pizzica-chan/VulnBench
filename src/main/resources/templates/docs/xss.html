@@ -40,6 +40,9 @@
         <li><strong>対策版で比較:</strong> <a th:href="@{/secure/posts}"><code>/secure/posts</code></a> で同じ検索をしてもキーワードはエスケープされ、<code>alert(1)</code> は動かない。</li>
     </th:block>
 
+    <h2>コメントでの蓄積型 XSS（おまけ）</h2>
+    <p>コメント本文も <code>vulnerable/post_detail.html</code> で <code>th:utext</code> 出力されます。投稿の本文ではなく <strong>コメント欄</strong>に同じペイロードを貼って送信するだけで蓄積型 XSS が再現できます。<strong>攻撃成功の目安:</strong> 投稿詳細ページを開くたびに <code>alert</code> が走ります（自分のコメントなら一覧の「編集／削除」リンクから停止できることも合わせて確認できます）。</p>
+
     <h2>VULNERABLE 側のテンプレート</h2>
     <pre>&lt;div th:utext="${p.content}"&gt;&lt;/div&gt;</pre>
 
