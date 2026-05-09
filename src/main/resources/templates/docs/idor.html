@@ -30,7 +30,6 @@
         <li><strong>攻撃成功の目安:</strong> 実装は <code>redirect:/vulnerable/users/{id}</code> なので <strong>admin（ID=1）のプロフィールページ</strong>に遷移する。そのページで確認するか、<a th:href="@{/vulnerable/users}"><code>/vulnerable/users</code></a> の一覧で admin のメールが <code>hacked@example.com</code> に変わっていることを確認できる。</li>
     </ol>
     <h3>他人の投稿の削除・編集（URL 直指定）</h3>
-    <p>画面上は投稿者本人にだけ「編集・削除」ボタンを出していますが、<strong>サーバはオーナー検証をしていません</strong>。</p>
     <ol>
         <li>引き続き bob でログインしたまま、新しいタブ（またはアドレスバー）で次を開く:
             <pre>http://localhost:8080/vulnerable/posts/1/delete</pre>
@@ -39,17 +38,16 @@
         <li>確認ダイアログなしで削除され、一覧から該当投稿が消える。</li>
         <li><strong>攻撃成功の目安:</strong> bob の画面では他人投稿の「削除」ボタンは出ていないが、URL 直指定だけで admin の投稿を消せている。</li>
         <li>編集用フォーム URL 例: <code>http://localhost:8080/vulnerable/posts/2/edit</code>（存在する ID に変更）。POST 更新や GET 更新も認可なしで通ります（<a th:href="@{/docs/csrf}">CSRF</a>参照）。</li>
-        <li><strong>対策版で比較:</strong> 同じ URL を試しても、Spring Security のオーナー／ADMIN チェックで拒否される。</li>
+        <li><strong>対策版で比較:</strong> 削除は GET ではなく POST＋CSRF のみ。またログイン済みでも <code>SecurePostController</code> が <code>SecureAuthorization.ensurePostOwner</code> で検証し、<strong>投稿の作成者または ADMIN</strong>でなければ 403（上記と同種の GET 形式の URL ではそもそもルーティングされない／成立しない）。</li>
     </ol>
     <h3>他人のコメント削除（URL 直指定）</h3>
-    <p>投稿だけでなく <strong>コメント</strong>にも同じ穴があります。画面上は本人にしか「編集／削除」リンクは出していませんが、サーバ側はオーナー検証なしです。</p>
     <ol>
         <li>引き続き bob でログインしたまま、削除したい他人のコメントが付いている投稿の詳細を開き、<strong>コメント ID</strong> を控える（コメント自体の表示で ID は見えないので、自分のコメントの「編集」リンクに含まれる <code>?editCommentId=...</code> や DB / ログで確認）。</li>
         <li>新しいタブのアドレスバーに次を入力（<code>{postId}</code> と <code>{commentId}</code> は実際の値に置換）:
             <pre>http://localhost:8080/vulnerable/posts/{postId}/comments/{commentId}/delete</pre>
         </li>
         <li><strong>攻撃成功の目安:</strong> 該当コメントが投稿詳細から消える。POST 系の <code>/vulnerable/posts/{postId}/comments/{commentId}/update</code> も認可なしで通り、他人のコメント本文を書き換えられる（外部オリジンの自動 submit フォームと組み合わせれば <a th:href="@{/docs/csrf}">CSRF</a> 経由でも成立）。</li>
-        <li><strong>対策版で比較:</strong> 同じ操作は POST＋CSRF＋オーナー検証で拒否される（403）。</li>
+        <li><strong>対策版で比較:</strong> 同じ操作は POST＋CSRF に加え、<strong>コメント投稿者または ADMIN</strong>でなければ拒否される（403）。</li>
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>
@@ -61,11 +59,11 @@
                 <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.web.VulnerablePostController</span>
                 <span class="doc-code-ref-method">#delete</span>
             </div>
-            <p class="doc-code-ref-desc">GET で削除を受け付け、投稿のオーナーかどうかをサーバ側で検証していない。</p>
+            <p class="doc-code-ref-desc">GET で削除を受け付け、対象投稿が<strong>自分が書いたものか</strong>をサーバー側で確認していない。</p>
         </div>
         <pre class="doc-code-body">@GetMapping("/{id}/delete")
 public String delete(@PathVariable Long id) {
-    postDao.delete(id);  // 誰がオーナーかを確認しない
+    postDao.delete(id);  // 投稿者本人かどうかを確認しない
     return "redirect:/vulnerable/posts";
 }</pre>
     </div>
@@ -79,13 +77,13 @@ public String delete(@PathVariable Long id) {
                 <span class="doc-code-ref-fqcn">com.example.secapp.secure.web.SecurePostController</span>
                 <span class="doc-code-ref-method">#delete</span>
             </div>
-            <p class="doc-code-ref-desc">POST で受け、`ensureOwner` で投稿者本人または ADMIN に限定したうえで削除する。</p>
+            <p class="doc-code-ref-desc">POST で受け、<code>SecureAuthorization.ensurePostOwner</code> で投稿者本人または ADMIN に限定したうえで削除する（同名の処理は編集でも呼ばれる）。</p>
         </div>
         <pre class="doc-code-body">@PostMapping("/{id}/delete")
 public String delete(@PathVariable Long id, @AuthenticationPrincipal SecurePrincipal me) {
     Post post = postDao.findById(id).orElse(null);
     if (post == null) return "redirect:/secure/posts";
-    ensureOwner(post, me); // 投稿者本人 or ADMIN だけ通す
+    SecureAuthorization.ensurePostOwner(post, me); // オーナー or ADMIN でなければ 403
     postDao.delete(id);
     return "redirect:/secure/posts";
 }</pre>
@@ -93,8 +91,8 @@ public String delete(@PathVariable Long id, @AuthenticationPrincipal SecurePrinc
 
     <h2>対策のポイント</h2>
     <ul>
-        <li>「認証されているか」と「そのリソースの所有者か」を必ず別々に確認する</li>
-        <li>サーバー側でオーナー判定を行う（クライアント側の隠し input 等は信用しない）</li>
+        <li>「認証されているか」と「<strong>そのデータを変更してよい本人か</strong>」は別の話なので、必ず両方を確認する</li>
+        <li>許可可否はサーバー側で決める（クライアントの表示や隠し input だけでは足りない）</li>
         <li>URL に他人の ID を入れて成立してしまう操作はないか、CRUD ごとに棚卸しする</li>
         <li>必要に応じて <code>@PreAuthorize</code> や <code>@PostAuthorize</code> を使う</li>
     </ul>

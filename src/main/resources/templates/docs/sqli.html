@@ -117,6 +117,41 @@ jdbc.query(
         <li>パスワードはハッシュ化してから保存し、SQL 上で <code>=</code> 比較しない</li>
         <li>入力サニタイズに頼らず、SQL の構文と値を分離する</li>
     </ul>
+
+    <h2>おまけ: 代表的な DB アクセスでのパラメータバインド例</h2>
+    <p>この教材の対策版は Spring JdbcTemplate です。実務では MyBatis や JPA もよく使われるため、<strong>値をプレースホルダにバインドする</strong>形の例を抜粋します（SQL 文字列にユーザー入力を連結しない）。</p>
+
+    <h3>MyBatis</h3>
+    <p>マッパー XML や <code>@Select</code> では <code>#{}</code> が JDBC の<strong>プリペアド・ステートメント用の値バインド</strong>になります。<code>${}</code> は SQL にそのまま文字列として差し込まれるだけなので、<strong>ユーザーが操作できる入力を渡すと SQL インジェクションの原因になります。</strong></p>
+    <p>どうしても <code>${}</code> が要る場合（並び順のキーや別テーブルを切り替えるなど）は、許可リストに無い名前は拒否するなど、サーバー側で強く絞った識別子だけを渡してください。</p>
+    <pre class="doc-code-body">&lt;!-- Mapper XML の例 --&gt;
+&lt;select id="findByUsername" resultType="com.example.User"&gt;
+  SELECT id, username, password FROM users WHERE username = #{username}
+&lt;/select&gt;
+
+&lt;!-- 検索 LIKE の例（パターンは Java 側で組み立てて引数に渡す） --&gt;
+&lt;select id="search" resultType="com.example.Post"&gt;
+  SELECT * FROM posts
+  WHERE title LIKE #{pattern} OR content LIKE #{pattern}
+&lt;/select&gt;</pre>
+    <pre class="doc-code-body">// アノテーション API の例
+@Select("SELECT * FROM users WHERE username = #{username}")
+User findByUsername(String username);</pre>
+
+    <h3>Spring JdbcTemplate</h3>
+    <pre class="doc-code-body">jdbcTemplate.queryForObject(
+    "SELECT * FROM users WHERE username = ?",
+    rowMapper,
+    username);</pre>
+
+    <h3>JPA / Spring Data JPA（JPQL）</h3>
+    <pre class="doc-code-body">@Query("SELECT u FROM User u WHERE u.username = :username")
+Optional&lt;User&gt; findByUsername(@Param("username") String username);
+
+// ネイティブ SQL でも位置・名前パラメータでバインドする
+@Query(value = "SELECT * FROM users WHERE username = ?1", nativeQuery = true)
+Optional&lt;User&gt; findByUsernameNative(String username);</pre>
+    <p class="meta">メソッド名からクエリを生成するだけの派生クエリ（<code>findByUsername(String username)</code> など）も、実装はパラメータバインドになります。</p>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

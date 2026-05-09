@@ -36,8 +36,10 @@
             </div>
             <p class="doc-code-ref-desc">ユーザ ID をそのまま Cookie に載せ、かつ <code>HttpOnly=false</code> でスクリプトから読めるようにしている（推測可能なセッション相当情報）。</p>
         </div>
-        <pre class="doc-code-body">Cookie cookie = new Cookie("vuln_uid", String.valueOf(userId));
-cookie.setHttpOnly(false); // 故意の設定
+        <pre class="doc-code-body">Cookie cookie = new Cookie(COOKIE_NAME, String.valueOf(userId)); // COOKIE_NAME は "vuln_uid"
+cookie.setPath("/vulnerable");
+cookie.setHttpOnly(false);
+cookie.setMaxAge(60 * 60 * 24);
 res.addCookie(cookie);</pre>
     </div>
 

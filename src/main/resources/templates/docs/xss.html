@@ -54,7 +54,7 @@
             </div>
             <p class="doc-code-ref-desc">投稿本文を <code>th:utext</code> で出力しており、HTML／スクリプトがそのまま解釈される（一覧の検索ハイライトやコメント欄も同様のパターン）。</p>
         </div>
-        <pre class="doc-code-body">&lt;div th:utext="${p.content}"&gt;&lt;/div&gt;</pre>
+        <pre class="doc-code-body">&lt;div th:utext="${post.content}"&gt;&lt;/div&gt;</pre>
     </div>
 
     <h2>SECURE 側のテンプレート</h2>
@@ -68,7 +68,7 @@
             </div>
             <p class="doc-code-ref-desc"><code>th:text</code> により自動エスケープされ、入力がそのまま HTML として評価されない。</p>
         </div>
-        <pre class="doc-code-body">&lt;div th:text="${p.content}" style="white-space:pre-wrap"&gt;&lt;/div&gt;</pre>
+        <pre class="doc-code-body">&lt;div th:text="${post.content}" style="white-space:pre-wrap"&gt;&lt;/div&gt;</pre>
     </div>
 
     <h2>対策のポイント</h2>
@@ -78,6 +78,36 @@
         <li>セッション Cookie は <code>HttpOnly</code> をオンにし、可能なら <code>Secure</code>, <code>SameSite=Lax</code> も付ける</li>
         <li>HTTP ヘッダで Content-Security-Policy を併用すると更に強固</li>
     </ul>
+
+    <h2>おまけ: Thymeleaf 以外での出力・エスケープの例</h2>
+    <p>この教材では <code>th:text</code> と <code>th:utext</code> の違いで XSS 対策を示しています。実務では JSP、SPA（React / Vue）、または JSON だけ返す API など様々ですが、共通するのは<strong>コンテキストに応じたエスケープ</strong>です。HTML に埋め込むなら HTML エスケープが基本で、サニタイズ済み HTML を意図的に許可する箇所だけを別扱いにします。</p>
+
+    <h3>JSP（JSTL）</h3>
+    <p>環境によっては <code>${userInput}</code> をそのまま本文に書くと解釈が変わり、エスケープされないことがあります。<code>&lt;c:out&gt;</code> は既定で XML（HTML で安全）向けにエスケープします。</p>
+    <pre class="doc-code-body">&lt;%@ taglib uri="http://java.sun.com/jsp/jstl/core" prefix="c" %&gt;
+&lt;div&gt;&lt;c:out value="${post.content}" /&gt;&lt;/div&gt;</pre>
+    <p class="meta">レガシーな <code>&lt;%=% ... %&gt;</code> 直呼び出しより、JSTL や Spring のフォームタグ＋適切なエスケープを優先するとよいです。</p>
+
+    <h3>React（JSX）</h3>
+    <p>テキストを子として渡すと既定でエスケープされます。<code>dangerouslySetInnerHTML</code> はサニタイズ済みなど<strong>ごく一部</strong>でのみ。</p>
+    <pre class="doc-code-body">function PostBody({ content }) {
+  return &lt;div style={{ whiteSpace: 'pre-wrap' }}&gt;{content}&lt;/div&gt;;
+}
+
+// ユーザー入力をそのまま渡すような使い方は原則避ける:
+// &lt;div dangerouslySetInnerHTML={{ __html: content }} /&gt;</pre>
+
+    <h3>Vue 3</h3>
+    <p>マスタッシュ <code>&#123;&#123; &#125;&#125;</code> はテキストとしてエスケープされます。<code>v-html</code> はブラウザが HTML として解釈するため、ユーザー入力には原則使いません。</p>
+    <pre class="doc-code-body">&lt;div style="white-space: pre-wrap"&gt;&#123;&#123; post.content &#125;&#125;&lt;/div&gt;
+&lt;!-- 危険: &lt;div v-html="post.content"&gt;&lt;/div&gt; （信頼できない入力に使わない） --&gt;</pre>
+
+    <h3>Java で HTML をエスケープするだけ（テンプレート外・独自出力）</h3>
+    <p>メール本文の組み立てやログ、独自ジェネレータなど、フレームワークの自動エスケープに載らないときはライブラリで明示的にエスケープします。</p>
+    <pre class="doc-code-body">import org.springframework.web.util.HtmlUtils;
+
+String safe = HtmlUtils.htmlEscape(userInput);</pre>
+    <p class="meta">コンテキストが HTML の属性値・JavaScript・CSS・URL の各ケースでは、それぞれ別のエスケープ規則が必要です。<a href="https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html">OWASP XSS Prevention Cheat Sheet</a> も参照してください。</p>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>

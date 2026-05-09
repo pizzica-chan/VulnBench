@@ -6,7 +6,7 @@
 
 <main class="container">
     <h1>SecApp - サイバーセキュリティ学習アプリ</h1>
-    <p>同じ機能を持つ <strong>脆弱版サイト</strong>（脆弱版アプリ）と <strong>対策版サイト</strong>（対策版アプリ）を並べて触り、コードの差分から脆弱性対策の勘所を学べる Spring Boot アプリです。</p>
+    <p>同じ機能を持つ <strong>脆弱版サイト</strong>と <strong>対策版サイト</strong>を並べて触り、コードの差分から脆弱性対策の勘所を学べる Spring Boot アプリです。</p>
 
     <p style="margin-top:0.75rem">
         <a class="btn btn-secondary" th:href="@{/docs}">脆弱性解説 (/docs) を見る</a>
@@ -31,14 +31,9 @@
     <ol>
         <li>まず <a th:href="@{/docs}">脆弱性解説 (/docs)</a> を読み、攻撃の概念をつかむ</li>
         <li><strong>脆弱版サイト</strong>で実際にペイロードを投入して攻撃を成立させる</li>
-        <li><strong>対策版サイト</strong>で同じペイロードを試し、なぜ通らないかを確認する</li>
+        <li><strong>対策版サイト</strong>でも同じペイロードを試して、成立しなくなる様子を確認する</li>
         <li>ソースコードの <code>vulnerable/</code> パッケージと <code>secure/</code> パッケージを diff で比較する</li>
     </ol>
-
-    <p class="meta">用語のメモ:
-        ヘッダ上段の<strong>「サイト」</strong>は教材全体の入口（ホーム／解説／脆弱版／対策版）、
-        ヘッダ下段の<strong>「アプリ」</strong>はその中で開いている脆弱版／対策版アプリ内の操作を指します。
-    </p>
 
     <h2>初期ユーザー（両版共通の認証情報）</h2>
     <table>

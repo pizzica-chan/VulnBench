@@ -116,6 +116,49 @@ public String delete(...) { ... }</pre>
         <li>CSRF トークン（Spring Security が自動で隠しフィールドに埋め込む）を必ず検証する</li>
         <li><code>SameSite=Lax</code> Cookie も併用すると効果的</li>
     </ul>
+
+    <h2>おまけ: Spring Security 以外での CSRF 対策の例</h2>
+    <p>この教材は Spring Security の CSRF フィルタが POST ごと検証する流れです。他スタックでも<strong>状態を変える処理は POST など安全なメソッドに限定し、攻撃ページから捏造しにくい秘密（トークンやカスタムヘッダなど）をサーバーで照合する</strong>、という構図は共通です。</p>
+
+    <h3>Django</h3>
+    <p>設定で <code>django.middleware.csrf.CsrfViewMiddleware</code> が有効なのが普通です。<code>POST</code> するフォームにトークンを埋め込みます。</p>
+    <pre class="doc-code-body">&lt;form method="post"&gt;
+  &#123;% csrf_token %&#125;
+  ...
+&lt;/form&gt;</pre>
+
+    <h3>Laravel（Blade）</h3>
+    <p><code>App\Http\Middleware\VerifyCsrfToken</code> が Web ルートに適用されます。フォームには <code>&#64;csrf</code> を置くか、SPA ではメタからトークンを読んで <code>X-XSRF-TOKEN</code> ヘッダに載せます。</p>
+    <pre class="doc-code-body">&lt;form method="post" action="/posts"&gt;
+  &#64;csrf
+  ...
+&lt;/form&gt;</pre>
+
+    <h3>Ruby on Rails</h3>
+    <p><code>protect_from_forgery</code> が既定で有効です。<code>form_with</code>／<code>form_for</code> には authenticity_token が自動で付きます。</p>
+    <pre class="doc-code-body">&lt;%= form_with model: @post do |f| %&gt;
+  ...
+&lt;% end %&gt;</pre>
+
+    <h3>Express（Node.js）での「トークンを自分で検証する」イメージ</h3>
+    <p><code>csurf</code> は広く参照されていた一方で開発終了しており、新規には代替ライブラリやフレームワーク組み込みを選ぶことが多いです。手書きでやる場合の流れは次のイメージです。</p>
+    <ol>
+        <li>サーバーは利用者ごとのセッションに、推測されにくい<strong>秘密（シークレット）</strong>を一度だけ格納する。</li>
+        <li>フォームを表示するとき、その秘密から計算した<strong>トークン文字列</strong>を hidden フィールドなどに載せ、利用者のブラウザに渡す。</li>
+        <li><strong>POST を受け取ったら</strong>、リクエストに付いているトークンが「このセッションの秘密と対になっているか」を検証し、合っていなければ拒否する。</li>
+    </ol>
+    <p>攻撃者のページからは「勝手に POST を飛ばす」ことはできますが、<strong>被害者のブラウザの中にだけある正しいトークンを読み取れない</strong>（別サイトなので）ため、トークンなし・偽物の POST にはなりやすく、これで防げます。<code>csrf</code>（npm）などは、この秘密の生成とトークンの作成・検証をライブラリに任せるためのものです。</p>
+    <pre class="doc-code-body">const Tokens = require('csrf');
+const csrf = new Tokens();
+
+// ログイン後などセッションに secret を保存
+req.session.csrfSecret = csrf.secretSync();
+
+// フォーム表示時: csrf.create(req.session.csrfSecret) を hidden に埋め込む
+// POST 時: csrf.verify(req.session.csrfSecret, req.body._csrf)</pre>
+
+    <h3>JSON API と Cookie セッションだけの SPA</h3>
+    <p>ブラウザの「単純なフォーム POST」だけでなく、<code>fetch</code> で JSON を送り Cookie だけでログイン状態を伝える場合でも CSRF が成立し得ます。代表的な組み立ては（1）<strong>ログイン応答やメタから CSRF トークンを渡しカスタムヘッダやヘッダ名付きフィールドで毎回送る</strong>、（2）<strong>Bearer など Second factor で Cookie に依存しない</strong>、に分かれます。詳細は <a href="https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP CSRF Prevention Cheat Sheet</a> が整理されています。</p>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
