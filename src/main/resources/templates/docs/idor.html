@@ -11,9 +11,15 @@
     <h2>何が起きるのか</h2>
     <p>URL の <code>{id}</code> をその場で書き換えるだけで他人のリソースにアクセス・更新できてしまう脆弱性。
         認証は通っているのに、<strong>「対象が本当に自分のものか」のチェックが抜けている</strong>のが本質。</p>
-    <p><small><strong>補足（一覧と認可）:</strong> 脆弱版の「ユーザー一覧」は ADMIN にだけヘッダ<strong>2 段目（アプリ内）</strong>にリンクが出ますが、<code>/vulnerable/users</code> 自体にはロール検証がなく、URL を直打ちすれば一般ユーザでも開けます（隠すだけの認可）。対策版では <code>GET /secure/users</code> を Spring Security で ADMIN のみに限定しています。平文パスワード列とのセットは <a th:href="@{/docs/auth}">パスワード平文保存</a>も参照。</small></p>
+    <p><small><strong>補足（一覧と認可）:</strong> 脆弱版の「ユーザー一覧」は ADMIN にだけヘッダ<strong>2 段目（アプリ内）</strong>にリンクが出ますが、<code>/vulnerable/users</code> 自体にはロール検証がなく、URL を直打ちすれば<strong>未ログインでも一般ユーザでも</strong>開けます（ナビで隠すだけの認可）。下記の「未ログインでユーザー一覧」も参照。対策版では <code>GET /secure/users</code> を Spring Security で ADMIN のみに限定しています。一覧に平文パスワードが並ぶ問題は <a th:href="@{/docs/auth}">パスワード平文保存</a>も参照。</small></p>
 
     <h2>再現手順（VULNERABLE 版）</h2>
+    <h3>未ログインでユーザー一覧が開く</h3>
+    <ol>
+        <li><strong>ログインしていない</strong>状態にする（<a th:href="@{/vulnerable/logout}"><code>/vulnerable/logout</code></a> へアクセスして Cookie を捨てる、またはシークレットウィンドウで開くなど）。</li>
+        <li>アドレスバーに <code>http://localhost:8080/vulnerable/users</code> を入力して Enter（または直接 <a th:href="@{/vulnerable/users}"><code>/vulnerable/users</code></a>）。一覧がそのまま表示される。</li>
+        <li><strong>対策版で比較:</strong> <code>http://localhost:8080/secure/users</code> は匿名では開けず、ADMIN でもない一般ユーザでも拒否される（ログインまたは 403）。</li>
+    </ol>
     <h3>他人のメール変更（GET）</h3>
     <ol>
         <li><code>http://localhost:8080/vulnerable/login</code> で <code>bob</code> / <code>builder</code> としてログイン（bob はユーザー ID <code>3</code>）。</li>
@@ -21,7 +27,7 @@
             <pre>http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com</pre>
             <code>1</code> は admin のユーザー ID です。
         </li>
-        <li><strong>攻撃成功の目安:</strong> 実装は <code>redirect:/vulnerable/users/{id}</code> なので <strong>admin（ID=1）のプロフィールページ</strong>に遷移する。そのページで確認するか、URL を直打ちして <code>/vulnerable/users</code> を開くと（一般ユーザでも一覧が開く教材実装）、<a th:href="@{/vulnerable/users}">ユーザー一覧</a>で admin のメールが <code>hacked@evil.com</code> になっていることを確認できる。</li>
+        <li><strong>攻撃成功の目安:</strong> 実装は <code>redirect:/vulnerable/users/{id}</code> なので <strong>admin（ID=1）のプロフィールページ</strong>に遷移する。そのページで確認するか、<a th:href="@{/vulnerable/users}"><code>/vulnerable/users</code></a> の一覧で admin のメールが <code>hacked@evil.com</code> に変わっていることを確認できる。</li>
     </ol>
     <h3>他人の投稿の削除・編集（URL 直指定）</h3>
     <p>画面上は投稿者本人にだけ「編集・削除」ボタンを出していますが、<strong>サーバはオーナー検証をしていません</strong>。</p>

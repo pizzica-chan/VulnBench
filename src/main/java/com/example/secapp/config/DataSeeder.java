@@ -63,8 +63,6 @@ public class DataSeeder implements CommandLineRunner {
                 "これはサンプル掲示板のため、実際のメンテナンス情報ではありません。");
         postDao.create(aliceId, "コードの貼り付け",
                 "`String sql = \"... WHERE id = '\" + id + \"'\"` のような話をメモしました。");
-        postDao.create(bobId, "週末の雑談",
-                "教材用アプリでの動作確認ばかりの週末でした。");
         postDao.create(adminId, "CSRF とセッション",
                 "フォームにトークンがない／あるときの動きを順に確認します。");
         postDao.create(aliceId, "コメント機能",
