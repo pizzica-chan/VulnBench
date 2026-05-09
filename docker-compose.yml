@@ -27,6 +27,9 @@ services:
     build: .
     image: secapp-web
     container_name: secapp-web
+    # compose restart で MySQL より先に立ち上がると Flyway が接続拒否で落ちることがあるため、
+    # 再起動ポリシーで数秒後に自動で復帰させる。
+    restart: unless-stopped
     depends_on:
       mysql:
         condition: service_healthy
