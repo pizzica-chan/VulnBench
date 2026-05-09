@@ -1,12 +1,12 @@
 ﻿#requires -Version 5.1
 <#
 .SYNOPSIS
-  WSL 上で既に起動している Docker Compose スタックを、Windows からワンクリックで再起動する。
+  WSL 上の Docker Compose でアプリを再ビルドし、Windows からワンクリックでソース変更を反映する。
 
 .DESCRIPTION
   - エクスプローラーから scripts\one-click-wsl-restart.cmd をダブルクリックして実行する想定。
-  - `docker compose restart` のみ（イメージの再ビルドやコンテナの作り直しはしない）。
-  - DB を空に戻したい場合は wsl-up.sh（force-recreate）を使う。
+  - `docker compose up -d --build --force-recreate app`（Dockerfile から app イメージを再ビルドし app コンテナを作り直す）。
+  - MySQL コンテナは載せ替えない（データは tmpfs だが、初回起動からの状態は維持）。DB まで初期化し直す場合は wsl-up.sh を使う。
 
 .PARAMETER NoPause
   成功時に Enter 待ちをしない。
@@ -59,7 +59,7 @@ $wslPath = Convert-WindowsPathToWslPath $repoWin
 $supportsCd = Test-WslSupportsCd
 
 Write-Host ""
-Write-Host "==> WSL 上で Docker Compose を再起動します。"
+Write-Host "==> WSL 上でアプリを再ビルドして反映します（compose up --build app）。"
 Write-Host "    Windows パス: $repoWin"
 Write-Host "    WSL パス:     $wslPath"
 Write-Host ""

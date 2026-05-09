@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# VulnBench / SecApp — 起動中の Compose スタックを再起動する（再ビルドなし）
+# VulnBench / SecApp — アプリ Dockerfile をビルドし直して app コンテナを載せ替える（ソース反映用）
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -18,11 +18,12 @@ if ! docker compose version >/dev/null 2>&1; then
 fi
 
 echo "==> repo: $REPO_ROOT"
-echo "==> docker compose restart"
-docker compose restart
+echo "==> docker compose up -d --build --force-recreate app"
+echo "    （MySQL はそのまま。DB まで初期化し直す場合は wsl-up.sh を使う）"
+docker compose up -d --build --force-recreate app
 
 echo ""
-echo "==> 再起動しました。コンテナ状態:"
+echo "==> ビルド・載せ替え後のコンテナ状態:"
 docker compose ps
 echo ""
 echo "  URL: http://localhost:8080"

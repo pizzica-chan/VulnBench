@@ -73,7 +73,7 @@ Write-Host "    Windows パス: $repoWin"
 Write-Host "    WSL パス:     $wslPath"
 Write-Host ""
 
-$bootstrap = "set -euo pipefail; chmod +x scripts/wsl-up.sh scripts/wsl-down.sh scripts/wsl-restart.sh 2>/dev/null || true; ./scripts/wsl-up.sh"
+$bootstrap = 'set -euo pipefail; chmod +x scripts/wsl-up.sh scripts/wsl-down.sh scripts/wsl-restart.sh 2>/dev/null || true; ./scripts/wsl-up.sh'
 
 if ($supportsCd) {
     Write-Host "==> wsl --cd ... bash -lc ..." 

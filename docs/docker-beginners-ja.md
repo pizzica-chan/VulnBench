@@ -106,7 +106,8 @@ jdbc:mysql://mysql:3306/secapp?...
 | 状態確認 | `docker compose ps` | サービス名 `mysql` / `app` と状態が表示されます。 |
 | ログを見る | `docker compose logs -f` または `docker compose logs -f app` | `-f` は追従（tail）。止めるときは Ctrl+C。 |
 | 止める | `docker compose down` | ネットワークなども整理されます（データは tmpfs の仕様に依存）。 |
-| 再起動（同じコンテナを止めて立ち上げ直す） | `docker compose restart` | 再ビルドや `--force-recreate` は行いません。Windows から WSL 向けには [README.md](../README.md) の `one-click-wsl-restart` / `wsl-restart.sh` が同じ操作です。 |
+| コンテナのみ再起動（イメージはそのまま） | `docker compose restart` | ソース変更はコンテナに入りません。 |
+| アプリだけ再ビルドして載せ替え | `docker compose up -d --build --force-recreate app` | このリポジトリでは Windows から WSL 向けに [README.md](../README.md) の `one-click-wsl-restart` / `wsl-restart.sh` がこの操作です。MySQL は通常そのままです。 |
 
 リポジトリ直下で実行する前提は [README.md](../README.md) の「手動（docker compose のみ）」と同じです。
 

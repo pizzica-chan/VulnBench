@@ -87,7 +87,7 @@ List&lt;User&gt; list = jdbc.query(sql, ROW_MAPPER);</pre>
                 <span class="doc-code-ref-fqcn">com.example.secapp.secure.dao.SecureUserDao</span>
                 <span class="doc-code-ref-method">#findByUsername</span>
             </div>
-            <p class="doc-code-ref-desc">SQL には<strong>ユーザー名だけ</strong>渡してユーザ行を検索する（<code>?</code> で束縛）。ログイン時に画面上で打った<strong>その場のパスワードは SQL 文へは入れず</strong>、<code>WHERE password = …</code> のような比較もしない。DB から取れるのはあらかじめ保存してある<strong>パスワードのハッシュ文字列</strong>だけで、それと入力パスワードを突き合わせるのは<strong>SQL の外</strong>（Spring Security の認証処理と <code>BCryptPasswordEncoder</code> の <code>matches</code>）になっている。</p>
+            <p class="doc-code-ref-desc">SQL には<strong>ユーザー名だけ</strong>渡してユーザ行を検索する（<code>?</code> でバインド）。ログイン時に画面上で打った<strong>その場のパスワードは SQL 文へは入れず</strong>、<code>WHERE password = …</code> のような比較もしない。DB から取れるのはあらかじめ保存してある<strong>パスワードのハッシュ文字列</strong>だけで、それと入力パスワードを突き合わせるのは<strong>SQL の外</strong>（Spring Security の認証処理と <code>BCryptPasswordEncoder</code> の <code>matches</code>）になっている。</p>
         </div>
         <pre class="doc-code-body">public Optional&lt;User&gt; findByUsername(String username) {
     try {

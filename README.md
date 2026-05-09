@@ -17,7 +17,7 @@
 ## 必要環境
 
 - **おすすめ:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Windows では WSL2 バックエンド推奨）
-- **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。起動済みスタックを軽く再起動だけする場合は `docker compose restart`、または WSL 用の `./scripts/wsl-restart.sh` / Windows の `one-click-wsl-restart`（後述）。
+- **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。**ソース変更を Docker へ反映する**ときは `./scripts/wsl-restart.sh` / Windows の `one-click-wsl-restart`（`docker compose up -d --build --force-recreate app`）を使う。コンテナだけ止めて同じイメージで立ち上げ直すだけなら `docker compose restart`。
 - **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
 - **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。
 
@@ -48,19 +48,19 @@
 - **WSL:** リポジトリ直下で `./scripts/wsl-down.sh`
 - **手動:** リポジトリ直下で `docker compose down`（同じプロジェクト名なら Windows / WSL どちらからでも可）
 
-**再起動**（`docker compose restart` 相当。イメージの再ビルドやコンテナの作り直しはしません。スタックがまだ無いと失敗します）:
+**ソース反映（app イメージ再ビルド + app コンテナ載せ替え）**（`docker compose up -d --build --force-recreate app` 相当。**MySQL コンテナは載せ替えません**。MySQL が未起動なら `depends_on` で立ち上がります）。
 
 - **ワンクリック（Windows）:** `scripts\one-click-wsl-restart.cmd` をダブルクリック、または `.\scripts\one-click-wsl-restart.ps1`（`-NoPause` で成功時の Enter 待ちなし）
 - **WSL:** リポジトリ直下で `./scripts/wsl-restart.sh`
-- **手動:** リポジトリ直下で `docker compose restart`
+- **手動:** リポジトリ直下で `docker compose up -d --build --force-recreate app`
 
-DB を空に戻して `--force-recreate` したい場合は **`wsl-up.sh` / `one-click-wsl-up`** を使います（上記の再起動では再作成しません）。
+**スタック全体を作り直し**て DB を初期状態にしたい場合は **`wsl-up.sh` / `one-click-wsl-up`**（`--force-recreate` 全サービス）を使います。コンテナのみの軽い再起動だけなら `docker compose restart`。
 
-| 環境 | 起動 | 停止 | 再起動（起動済み・再ビルドなし） |
-|------|------|------|--------------------------------|
+| 環境 | 起動 | 停止 | ソース反映（app 再ビルド） |
+|------|------|------|---------------------------|
 | **ワンクリック（Win → WSL）** | `scripts\one-click-wsl-up.cmd` または `.\scripts\one-click-wsl-up.ps1` | `scripts\one-click-wsl-down.cmd` または `.\scripts\one-click-wsl-down.ps1`（ほか上記） | `scripts\one-click-wsl-restart.cmd` または `.\scripts\one-click-wsl-restart.ps1` |
 | **WSL（Ubuntu 等）** | `./scripts/wsl-up.sh` | `./scripts/wsl-down.sh` | `./scripts/wsl-restart.sh` |
-| **Windows + Docker Desktop（compose は Windows 側 CLI）** | `.\scripts\docker-desktop-up.ps1` または `scripts\docker-desktop-up.cmd` | `.\scripts\docker-desktop-down.ps1` または `scripts\docker-desktop-down.cmd` | リポジトリ直下で `docker compose restart`（専用ワンクリックは無し） |
+| **Windows + Docker Desktop（compose は Windows 側 CLI）** | `.\scripts\docker-desktop-up.ps1` または `scripts\docker-desktop-up.cmd` | `.\scripts\docker-desktop-down.ps1` または `scripts\docker-desktop-down.cmd` | リポジトリ直下で `docker compose up -d --build --force-recreate app`（専用ワンクリックは無し） |
 
 いずれも **リポジトリのクローン先で実行**してください（カレントディレクトリはどこでも可。スクリプトがルートを自動検出します）。
 
@@ -108,7 +108,7 @@ docker compose logs -f app
 
 停止は `./scripts/wsl-down.sh` または `docker compose down`（リポジトリ直下で）。
 
-起動済みのコンテナだけ Spring の再起動などしたいときは `./scripts/wsl-restart.sh`（`docker compose restart`）。WSL 統合を使わず Windows 側だけで compose している場合は同じディレクトリで `docker compose restart`。
+ソースを直したあと Docker 上のアプリに反映したいときは `./scripts/wsl-restart.sh`（`docker compose up -d --build --force-recreate app`）。WSL 統合を使わず Windows 側だけで compose している場合は同じディレクトリで同じコマンドを実行する。コンテナだけの再起動だけなら `docker compose restart`。
 
 ### Windows（Docker Desktop）で起動する
 
@@ -217,7 +217,7 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 scripts/               WSL / Windows / ワンクリック用の起動・停止スクリプト
   one-click-wsl-up.cmd / one-click-wsl-up.ps1   Windows→WSL ワンクリック起動
   one-click-wsl-down.cmd / one-click-wsl-down.ps1  同上の停止
-  one-click-wsl-restart.cmd / one-click-wsl-restart.ps1  同上の再起動（docker compose restart）
+  one-click-wsl-restart.cmd / one-click-wsl-restart.ps1  同上のソース反映（compose up --build app）
   Ensure-DockerDesktop.ps1                      Docker 待機ロジック（他スクリプトから dot-source）
   wsl-up.sh / wsl-down.sh / wsl-restart.sh
   docker-desktop-up.ps1 / docker-desktop-down.ps1
