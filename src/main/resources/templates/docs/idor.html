@@ -18,16 +18,16 @@
     <ol>
         <li><strong>ログインしていない</strong>状態にする（<a th:href="@{/vulnerable/logout}"><code>/vulnerable/logout</code></a> へアクセスして Cookie を捨てる、またはシークレットウィンドウで開くなど）。</li>
         <li>アドレスバーに <code>http://localhost:8080/vulnerable/users</code> を入力して Enter（または直接 <a th:href="@{/vulnerable/users}"><code>/vulnerable/users</code></a>）。一覧がそのまま表示される。</li>
-        <li><strong>対策版で比較:</strong> <code>http://localhost:8080/secure/users</code> は匿名では開けず、ADMIN でもない一般ユーザでも拒否される（ログインまたは 403）。</li>
+        <li><strong>対策版で比較:</strong> <code>http://localhost:8080/secure/users</code> は匿名では開けず、ADMIN でもない一般ユーザでも拒否される。</li>
     </ol>
     <h3>他人のメール変更（GET）</h3>
     <ol>
         <li><code>http://localhost:8080/vulnerable/login</code> で <code>bob</code> / <code>builder</code> としてログイン（bob はユーザー ID <code>3</code>）。</li>
         <li>アドレスバーを次の URL に<strong>そのまま貼り替えて</strong> Enter（ホストは環境に合わせる）:
-            <pre>http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com</pre>
+            <pre>http://localhost:8080/vulnerable/users/1/update-email?email=hacked@example.com</pre>
             <code>1</code> は admin のユーザー ID です。
         </li>
-        <li><strong>攻撃成功の目安:</strong> 実装は <code>redirect:/vulnerable/users/{id}</code> なので <strong>admin（ID=1）のプロフィールページ</strong>に遷移する。そのページで確認するか、<a th:href="@{/vulnerable/users}"><code>/vulnerable/users</code></a> の一覧で admin のメールが <code>hacked@evil.com</code> に変わっていることを確認できる。</li>
+        <li><strong>攻撃成功の目安:</strong> 実装は <code>redirect:/vulnerable/users/{id}</code> なので <strong>admin（ID=1）のプロフィールページ</strong>に遷移する。そのページで確認するか、<a th:href="@{/vulnerable/users}"><code>/vulnerable/users</code></a> の一覧で admin のメールが <code>hacked@example.com</code> に変わっていることを確認できる。</li>
     </ol>
     <h3>他人の投稿の削除・編集（URL 直指定）</h3>
     <p>画面上は投稿者本人にだけ「編集・削除」ボタンを出していますが、<strong>サーバはオーナー検証をしていません</strong>。</p>

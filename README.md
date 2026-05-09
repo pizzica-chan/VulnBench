@@ -182,6 +182,7 @@ JDK 21 と Maven が必要です。`application.yml` は `localhost:3306` を参
 
 VULNERABLE 側はパスワードを平文のまま `vuln_users` に保存しています。
 SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` に保存しています（`DataSeeder` が起動時に投入）。
+画面上に一覧・プロフィールへ平文を載せているのは**教材として可視化しやすくするため**であり、実運用では載せません（解説ページ `/docs/auth` にも記載）。
 
 ## URL マップ（主要なもの）
 
@@ -251,10 +252,10 @@ src/main/resources/
 | 1 | **SQLi（ログイン／検索）** | `/vulnerable/login` でユーザー名に `' OR 1=1 -- `（末尾スペース付き）、パスワード任意でログイン。**攻撃成功の目安:** 投稿一覧の見出し横に「`admin` でログイン中」と出る。検索 SQLi は `/docs/sqli` の手順を参照。 |
 | 2 | **蓄積型 XSS** | `alice` / `wonderland` でログイン → 新規投稿の本文に `<script>alert(document.cookie)</script>`。**攻撃成功の目安:** 一覧や詳細でスクリプトが実行されアラートが出る。 |
 | 3 | **反射型 XSS** | `/vulnerable/posts` の検索に `<img src=x onerror=alert(1)>` を入力して検索。**攻撃成功の目安:** 一覧表示時に `alert(1)` が動く。 |
-| 4 | **CSRF / GET 削除** | ログイン後、新しいタブのアドレスバーに `http://localhost:8080/vulnerable/posts/1/delete` を入力（投稿 ID は一覧で確認）。**攻撃成功の目安:** 確認なしで投稿が消える。 |
-| 5 | **パスワード平文** | ヘッダ2段目に一覧が出ない一般ユーザでも、`http://localhost:8080/vulnerable/users` を直打ち。**攻撃成功の目安:** `admin123` など平文が一覧に載る。対策版は一覧が **ADMIN のみ**（ほかはログイン要求または拒否）。 |
+| 4 | **CSRF / GET で状態変更** | ログイン後、**`/docs/csrf`** の手順どおり試す（GET 削除の複数パターン、別投稿 ID の GET 更新など）。単純な例だけなら新しいタブのアドレスバーに `/vulnerable/posts/1/delete` のような GET 削除 URL を入力してもよい。**攻撃成功の目安:** 意図せず状態が書き換わる。 |
+| 5 | **パスワード平文** | `admin` / `admin123` でログインし、ユーザー一覧またはプロフィールで平文のまま読めることを確認（画面表示は教材用の可視化）。**攻撃成功の目安:** 保存パスワードがそのまま分かる。対策版は BCrypt と画面からの除去。 |
 | 6 | **セッション改ざん** | `bob` / `builder` でログイン → DevTools の Cookie で `vuln_uid` を `1` に変更 → 一覧を再読み込み。**攻撃成功の目安:** 表示が `admin` に切り替わる。 |
-| 7 | **IDOR** | `bob` でログインしたまま `http://localhost:8080/vulnerable/users/1/update-email?email=hacked@evil.com` にアクセス。**攻撃成功の目安:** 一覧 URL を開くか admin プロフィールで、admin のメールが書き換わっている。 |
+| 7 | **IDOR / 認可不備** | **`/docs/idor`** に手順をまとめている（例: admin のプロフィールを一般ユーザ権限でメール変更、未ログインでユーザー一覧など）。**一例（メール改ざん）:** `bob` でログインしたまま `http://localhost:8080/vulnerable/users/1/update-email?email=hacked@example.com` にアクセス。**攻撃成功の目安:** 権限や本人性のない操作が成立する。 |
 
 同じ URL・操作を `/secure/...` に置き換えると、パラメータ化クエリ・エスケープ・CSRF・BCrypt・セッション・オーナー判定などにより成立しません。
 

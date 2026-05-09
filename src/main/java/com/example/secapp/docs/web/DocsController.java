@@ -27,7 +27,7 @@ public class DocsController {
             Map.of("id", "csrf",    "title", "クロスサイトリクエストフォージェリ (CSRF)",
                     "summary", "GET で削除を受け付けてしまう罠"),
             Map.of("id", "auth",    "title", "パスワード平文保存",
-                    "summary", "DB に平文を入れたときの被害範囲（脆弱版は ADMIN にだけ一覧リンクだが URL は無認可）"),
+                    "summary", "ハッシュ化せず DB にパスワードを平文保存すると、流出時にそのまま悪用されうる問題"),
             Map.of("id", "session", "title", "セッション管理不備",
                     "summary", "自前 Cookie で userId を持たせるとどうなるか"),
             Map.of("id", "idor",    "title", "認可不備 (IDOR)",
