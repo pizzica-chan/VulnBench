@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
   WSL 上で既に起動している Docker Compose スタックを、Windows からワンクリックで再起動する。
@@ -64,7 +64,7 @@ Write-Host "    Windows パス: $repoWin"
 Write-Host "    WSL パス:     $wslPath"
 Write-Host ""
 
-$bootstrap = "set -euo pipefail; chmod +x scripts/wsl-restart.sh 2>/dev/null || true; ./scripts/wsl-restart.sh"
+$bootstrap = 'set -euo pipefail; chmod +x scripts/wsl-restart.sh 2>/dev/null || true; ./scripts/wsl-restart.sh'
 
 if ($supportsCd) {
     & wsl.exe --cd "$wslPath" -e bash -lc "$bootstrap"
