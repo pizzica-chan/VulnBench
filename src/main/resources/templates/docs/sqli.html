@@ -26,11 +26,6 @@
     </ol>
 
     <h2>再現手順（投稿検索・VULNERABLE）</h2>
-    <p>VULNERABLE 版の検索は、キーワードを次の SQL にそのまま埋め込んでいます（改行は説明用）。</p>
-    <pre>… WHERE p.title LIKE '%<strong>キーワード</strong>%'
- OR p.content LIKE '%<strong>キーワード</strong>%'
-ORDER BY …</pre>
-    <p>キーワードに <code>'</code> や <code>--</code> を含めると、意図しない条件式になります。</p>
     <th:block th:with="payload=|x' OR 1=1 -- |">
     <ol>
         <li><a th:href="@{/vulnerable/posts}">投稿一覧</a>（<code>/vulnerable/posts</code>）を開く。</li>
@@ -39,7 +34,7 @@ ORDER BY …</pre>
             <pre>x' OR 1=1 -- </pre>
         </li>
         <li><strong>攻撃成功の目安:</strong> 手順 2 より明らかに<strong>多くの投稿</strong>が一覧に出る（<code>OR 1=1</code> で条件が常に真になり、行末コメント <code>-- </code> で後半の <code>OR p.content LIKE …</code> などが無効化されるため）。</li>
-        <li>同じ文字列を <a th:href="@{/secure/posts}">対策版の投稿一覧</a>の検索に入れても、キーワードはパラメータとして束縛されるだけなので、<strong>「x' OR 1=1 -- 」を含む文字列の普通の部分一致検索</strong>になり、上記のような「全件に近い表示」にはならない。</li>
+        <li>同じ文字列を <a th:href="@{/secure/posts}">対策版の投稿一覧</a>の検索に入れても、キーワードはパラメータとしてバインドされるだけなので、<strong>「x' OR 1=1 -- 」を含む文字列の普通の部分一致検索</strong>になり、上記のような「全件に近い表示」にはならない。</li>
         <li>（任意）アドレスバーで試す場合: <a th:href="@{/vulnerable/posts(q=${payload})}">このリンク</a>（GET で同じ <code>q</code>）</li>
     </ol>
     </th:block>

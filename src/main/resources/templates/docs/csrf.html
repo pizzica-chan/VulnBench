@@ -13,20 +13,19 @@
         ログイン中の Cookie はブラウザが自動送信するため、被害者が気づかない間に投稿削除や設定変更が走ります。</p>
 
     <h2>再現手順（VULNERABLE 版）</h2>
-    <p>「ログイン済みのブラウザが、クリック一つ／タブ一つで<strong>GET による状態変更</strong>を意図せず実行してしまう」イメージで確認します。</p>
     <ol>
         <li><code>http://localhost:8080/vulnerable/login</code> でログイン（例: <code>alice</code> / <code>wonderland</code>）。</li>
-        <li><a th:href="@{/vulnerable/posts}">投稿一覧</a>を開き、削除してよい<strong>投稿 ID</strong>を確認する（初期データでは「ようこそ」が <code>id=1</code>、alice の「初投稿」が <code>id=2</code> など。詳細ページの URL の数字が ID）。</li>
+        <li><a th:href="@{/vulnerable/posts}">投稿一覧</a>を開き、必要なら<strong>投稿 ID</strong>を確認する（初期データでは「ようこそ」<code>id=1</code>、alice「初投稿」<code>id=2</code>、bob「雑談」<code>id=3</code> など。詳細ページの URL の数字が ID）。</li>
         <li><strong>方法 A（確実・手順が短い）:</strong> ログインしたまま <strong>新しいタブ</strong>を開き、アドレスバーに
             <pre>http://localhost:8080/vulnerable/posts/1/delete</pre>
-            のように <strong><code>/vulnerable/posts/<em>{id}</em>/delete</code></strong> を入力して Enter（<code>{id}</code> は手順2で決めた値）。<strong>確認ダイアログは出ません</strong>（一覧画面の「削除」ボタンには JavaScript の <code>confirm</code> が付いていますが、この手順は<strong>アドレスバー直打ち</strong>のため <code>onclick</code> ハンドラが走らない＝そのまま削除リクエストが飛びます）。即リダイレクトされ投稿が消えます。
+            のように <strong><code>/vulnerable/posts/<em>{id}</em>/delete</code></strong> を入力して Enter（例では <code>id=1</code>。<code>{id}</code> は存在する投稿に合わせる）。<strong>確認ダイアログは出ません</strong>（一覧画面の「削除」ボタンには JavaScript の <code>confirm</code> が付いていますが、この手順は<strong>アドレスバー直打ち</strong>のため <code>onclick</code> ハンドラが走らない＝そのまま削除リクエストが飛びます）。即リダイレクトされ投稿が消えます。
             <br><small>同じ要領で <code>/vulnerable/posts/{postId}/comments/{commentId}/delete</code> もコメント単位で GET 削除が成立します（<a th:href="@{/docs/idor}">IDOR</a>参照）。</small>
         </li>
-        <li><strong>方法 B（CSRF の典型イメージ・自動 submit フォーム）:</strong> 次のような HTML を <strong>ローカルの別ファイル（例: <code>attacker.html</code>）</strong>として保存し、ログイン済みの同じブラウザで開く。ページを開いた瞬間にスクリプトがフォームを送信し、<strong>top-level navigation として</strong> <code>/vulnerable/posts/1/delete</code> へ遷移する。
+        <li><strong>方法 B（CSRF の典型イメージ・自動 submit フォーム）:</strong> 次のような HTML を <strong>ローカルの別ファイル（例: <code>attacker.html</code>）</strong>として保存し、ログイン済みの同じブラウザで開く。ページを開いた瞬間にスクリプトがフォームを送信し、<strong>top-level navigation として</strong> <code>/vulnerable/posts/2/delete</code> へ遷移する。
             <pre>&lt;!doctype html&gt;
 &lt;html&gt;&lt;body&gt;
 &lt;p&gt;ただのキャンペーンページ……&lt;/p&gt;
-&lt;form id="x" action="http://localhost:8080/vulnerable/posts/1/delete" method="get"&gt;&lt;/form&gt;
+&lt;form id="x" action="http://localhost:8080/vulnerable/posts/2/delete" method="get"&gt;&lt;/form&gt;
 &lt;script&gt;document.getElementById('x').submit();&lt;/script&gt;
 &lt;/body&gt;&lt;/html&gt;</pre>
             <p style="margin-top:0.25rem"><small>
@@ -34,8 +33,8 @@
             </small></p>
         </li>
         <li><strong>GET による更新:</strong> ログイン不要な実装のため、同様にアドレスバーへ
-            <pre>http://localhost:8080/vulnerable/posts/1/update?title=hacked&amp;content=hacked</pre>
-            のように貼ると、認可チェックなく更新されます（<code>id</code> は存在する投稿に合わせる）。
+            <pre>http://localhost:8080/vulnerable/posts/3/update?title=hacked&amp;content=hacked</pre>
+            のように貼ると、認可チェックなく更新されます（例では <code>id=3</code>）。
         </li>
         <li><strong>攻撃成功の目安:</strong> <strong>削除</strong>なら一覧から該当投稿が消えている。<strong>GET 更新</strong>なら該当投稿を開き、タイトル・本文が <code>hacked</code> に変わっている。</li>
         <li><strong>対策版で比較:</strong> 削除・更新は POST＋CSRF トークンが必要なため、同じ URL を踏んでも成立しません。</li>

@@ -52,7 +52,7 @@ public class SecurePostDao {
     /**
      * タイトル・本文に対する部分一致検索を行う。
      * <p>
-     * 値はパラメータ化クエリで束縛するうえ、LIKE 用の <code>%</code>／<code>_</code>／<code>\</code> を
+     * 値はパラメータ化クエリでバインドするうえ、LIKE 用の <code>%</code>／<code>_</code>／<code>\</code> を
      * バックスラッシュでエスケープし、SQL 側にも {@code ESCAPE '\\'} を明示する。これにより
      * 検索語に <code>%</code> や <code>_</code> を含めても「全件マッチ」「単一文字ワイルドカード」が成立しない。
      *
