@@ -47,16 +47,37 @@
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>
-    <pre>// VulnerablePostController#delete
-@GetMapping("/{id}/delete")
+    <p class="doc-code-legend">各コードブロック<strong>直上の参照バー</strong>に、その抜粋のクラス・メソッド（またはファイルパス）を示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.web.VulnerablePostController</span>
+                <span class="doc-code-ref-method">#delete</span>
+            </div>
+            <p class="doc-code-ref-desc">GET で削除を受け付け、投稿のオーナーかどうかをサーバ側で検証していない。</p>
+        </div>
+        <pre class="doc-code-body">@GetMapping("/{id}/delete")
 public String delete(@PathVariable Long id) {
     postDao.delete(id);  // 誰がオーナーかを確認しない
     return "redirect:/vulnerable/posts";
 }</pre>
+    </div>
 
     <h2>SECURE 側のコード</h2>
-    <pre>// SecurePostController#delete
-@PostMapping("/{id}/delete")
+    <p class="doc-code-legend">対策版も<strong>緑の参照バー</strong>で、抜粋の所在を同じ見せ方で示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.web.SecurePostController</span>
+                <span class="doc-code-ref-method">#delete</span>
+            </div>
+            <p class="doc-code-ref-desc">POST で受け、`ensureOwner` で投稿者本人または ADMIN に限定したうえで削除する。</p>
+        </div>
+        <pre class="doc-code-body">@PostMapping("/{id}/delete")
 public String delete(@PathVariable Long id, @AuthenticationPrincipal SecurePrincipal me) {
     Post post = postDao.findById(id).orElse(null);
     if (post == null) return "redirect:/secure/posts";
@@ -64,6 +85,7 @@ public String delete(@PathVariable Long id, @AuthenticationPrincipal SecurePrinc
     postDao.delete(id);
     return "redirect:/secure/posts";
 }</pre>
+    </div>
 
     <h2>対策のポイント</h2>
     <ul>

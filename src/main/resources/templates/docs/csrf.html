@@ -42,24 +42,77 @@
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>
-    <pre>// VulnerablePostController
-@GetMapping("/{id}/delete")
+    <p class="doc-code-legend">各コードブロック<strong>直上の参照バー</strong>に、その抜粋のクラス・メソッド（またはファイルパス）を示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.web.VulnerablePostController</span>
+                <span class="doc-code-ref-method">状態変更エンドポイント</span>
+            </div>
+            <p class="doc-code-ref-desc">削除・更新を<strong>GET</strong>で受け付けているため、意図せない遷移・画像読み込み・フォーム submit だけで状態が変わり得る。</p>
+        </div>
+        <pre class="doc-code-body">@GetMapping("/{id}/delete")
 public String delete(@PathVariable Long id) { ... }
 
 @GetMapping("/{id}/update")
 public String updateViaGet(@PathVariable Long id,
                            @RequestParam String title,
                            @RequestParam String content) { ... }</pre>
-    <p>さらに <code>SecurityConfig</code> の寛容なフィルタチェーン（<code>/secure/**</code> 以外）で CSRF を <code>disable()</code> しています。</p>
+    </div>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.config.SecurityConfig</span>
+                <span class="doc-code-ref-method">#permissiveFilterChain</span>
+            </div>
+            <p class="doc-code-ref-desc">脆弱版ルート側のフィルタチェーンで CSRF 保護をオフにしており（POST があっても）トークン検証が行われない。</p>
+        </div>
+        <pre class="doc-code-body">http
+        .securityMatcher("/**")
+        .authorizeHttpRequests(auth -> auth.anyRequest().permitAll())
+        .csrf(csrf -> csrf.disable())
+        .formLogin(form -> form.disable())
+        ...
+        return http.build();</pre>
+    </div>
 
     <h2>SECURE 側のコード</h2>
-    <pre>// SecurityConfig#secureFilterChain
-.csrf(Customizer.withDefaults())
-// SecurePostController
-@PostMapping("/{id}/update")
+    <p class="doc-code-legend">対策版も<strong>緑の参照バー</strong>で、抜粋の所在を同じ見せ方で示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.config.SecurityConfig</span>
+                <span class="doc-code-ref-method">#secureFilterChain</span>
+            </div>
+            <p class="doc-code-ref-desc"><code>/secure/**</code> 向けチェーンでは Spring Security のデフォルトで CSRF 検証が有効。</p>
+        </div>
+        <pre class="doc-code-body">http
+        .securityMatcher("/secure/**")
+        ...
+        .csrf(Customizer.withDefaults())</pre>
+    </div>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.web.SecurePostController</span>
+                <span class="doc-code-ref-method">#update / #delete</span>
+            </div>
+            <p class="doc-code-ref-desc">更新・削除は <code>@PostMapping</code> のみとし、フォームから CSRF トークンと共に送る。</p>
+        </div>
+        <pre class="doc-code-body">@PostMapping("/{id}/update")
 public String update(...) { ... }
+
 @PostMapping("/{id}/delete")
 public String delete(...) { ... }</pre>
+    </div>
 
     <h2>対策のポイント</h2>
     <ul>

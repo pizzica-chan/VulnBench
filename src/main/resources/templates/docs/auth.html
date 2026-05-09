@@ -24,18 +24,51 @@
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>
-    <pre>// VulnerableUserDao#create
-String sql = "INSERT INTO vuln_users (username, password, email, role) VALUES ("
+    <p class="doc-code-legend">各コードブロック<strong>直上の参照バー</strong>に、その抜粋のクラス・メソッド（またはファイルパス）を示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.dao.VulnerableUserDao</span>
+                <span class="doc-code-ref-method">#create</span>
+            </div>
+            <p class="doc-code-ref-desc">パスワードをハッシュ化せず、INSERT 文の文字列へ平文のまま連結している。</p>
+        </div>
+        <pre class="doc-code-body">String sql = "INSERT INTO vuln_users (username, password, email, role) VALUES ("
         + "'" + username + "', '" + plainPassword + "', '" + email + "', 'USER')";
 jdbc.update(sql);</pre>
+    </div>
 
     <h2>SECURE 側のコード</h2>
-    <pre>// SecureAuthController#doRegister
-String hashed = passwordEncoder.encode(form.getPassword());
-userDao.create(form.getUsername(), hashed, form.getEmail(), "USER");
+    <p class="doc-code-legend">対策版も<strong>緑の参照バー</strong>で、抜粋の所在を同じ見せ方で示しています。</p>
 
-// SecureUserDao#create はパラメータ化クエリ
-"INSERT INTO sec_users (username, password, email, role) VALUES (?, ?, ?, ?)"</pre>
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.web.SecureAuthController</span>
+                <span class="doc-code-ref-method">#doRegister</span>
+            </div>
+            <p class="doc-code-ref-desc">登録時に <code>PasswordEncoder</code> でハッシュ化してから DAO に渡す。</p>
+        </div>
+        <pre class="doc-code-body">String hashed = passwordEncoder.encode(form.getPassword());
+userDao.create(form.getUsername(), hashed, form.getEmail(), "USER");</pre>
+    </div>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.dao.SecureUserDao</span>
+                <span class="doc-code-ref-method">#create</span>
+            </div>
+            <p class="doc-code-ref-desc">INSERT はすべてプレースホルダ。<code>password</code> 列にはハッシュのみが入る。</p>
+        </div>
+        <pre class="doc-code-body">jdbc.update(
+    "INSERT INTO sec_users (username, password, email, role) VALUES (?, ?, ?, ?)",
+    username, hashedPassword, email, role);</pre>
+    </div>
 
     <h2>対策のポイント</h2>
     <ul>

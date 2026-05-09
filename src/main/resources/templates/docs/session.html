@@ -26,21 +26,56 @@
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>
-    <pre>Cookie cookie = new Cookie("vuln_uid", String.valueOf(userId));
+    <p class="doc-code-legend">各コードブロック<strong>直上の参照バー</strong>に、その抜粋のクラス・メソッド（またはファイルパス）を示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.auth.LegacyCookieAuth</span>
+                <span class="doc-code-ref-method">#login</span>
+            </div>
+            <p class="doc-code-ref-desc">ユーザ ID をそのまま Cookie に載せ、かつ <code>HttpOnly=false</code> でスクリプトから読めるようにしている（推測可能なセッション相当情報）。</p>
+        </div>
+        <pre class="doc-code-body">Cookie cookie = new Cookie("vuln_uid", String.valueOf(userId));
 cookie.setHttpOnly(false); // 故意の設定
 res.addCookie(cookie);</pre>
+    </div>
 
     <h2>SECURE 側のコード</h2>
-    <pre>// SecurityConfig
+    <p class="doc-code-legend">対策版も<strong>緑の参照バー</strong>で、抜粋の所在を同じ見せ方で示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.config.SecurityConfig</span>
+                <span class="doc-code-ref-method">#secureFilterChain</span>
+            </div>
+            <p class="doc-code-ref-desc">サーバ発行のセッションを前提とし、ログイン後にセッション ID を再生成して固定化を抑止する。</p>
+        </div>
+        <pre class="doc-code-body">...
 .sessionManagement(s -> s
     .sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED)
     .sessionFixation(sf -> sf.changeSessionId()))
-// application.yml
-servlet:
+...</pre>
+    </div>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">src/main/resources/application.yml</span>
+                <span class="doc-code-ref-method">servlet.session.cookie</span>
+            </div>
+            <p class="doc-code-ref-desc">対策サイト用セッション Cookie 名と <code>http-only</code> 等のアプリ共通設定。</p>
+        </div>
+        <pre class="doc-code-body">servlet:
   session:
     cookie:
       name: SECAPP_SESSION
       http-only: true</pre>
+    </div>
 
     <h2>対策のポイント</h2>
     <ul>

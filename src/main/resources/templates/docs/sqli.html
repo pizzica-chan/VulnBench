@@ -45,29 +45,78 @@ ORDER BY …</pre>
     </th:block>
 
     <h2>VULNERABLE 側のコード</h2>
-    <pre>// VulnerableUserDao#findForLogin（値が SQL に直接連結される）
-String sql = "SELECT * FROM vuln_users "
+    <p class="doc-code-legend">各コードブロック<strong>直上の参照バー</strong>に、その抜粋のクラス・メソッド（またはファイルパス）を示しています。</p>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.dao.VulnerableUserDao</span>
+                <span class="doc-code-ref-method">#findForLogin</span>
+            </div>
+            <p class="doc-code-ref-desc">入力されたユーザー名・パスワードを SQL の文字リテラルへそのまま連結している。</p>
+        </div>
+        <pre class="doc-code-body">String sql = "SELECT * FROM vuln_users "
         + "WHERE username = '" + username + "' "
         + "AND password = '" + password + "'";
-List&lt;User&gt; list = jdbc.query(sql, ROW_MAPPER);
+List&lt;User&gt; list = jdbc.query(sql, ROW_MAPPER);</pre>
+    </div>
 
-// VulnerablePostDao#search（LIKE に連結）
-String sql = SELECT_BASE
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.dao.VulnerablePostDao</span>
+                <span class="doc-code-ref-method">#search</span>
+            </div>
+            <p class="doc-code-ref-desc">検索キーワードを <code>LIKE</code> のパターン文字列へ連結している。</p>
+        </div>
+        <pre class="doc-code-body">String sql = SELECT_BASE
         + "WHERE p.title LIKE '%" + keyword + "%' "
         + "OR p.content LIKE '%" + keyword + "%' "
         + "ORDER BY p.id DESC";</pre>
+    </div>
 
     <h2>SECURE 側のコード</h2>
-    <pre>// SecureUserDao — ユーザー名はプレースホルダ
-jdbc.queryForObject(
-    "SELECT * FROM sec_users WHERE username = ?",
-    ROW_MAPPER, username);
-// パスワードは BCryptPasswordEncoder#matches で照合（生 SQL に乗せない）
+    <p class="doc-code-legend">対策版も<strong>緑の参照バー</strong>で、抜粋の所在を同じ見せ方で示しています。</p>
 
-// SecurePostDao#search — LIKE もプレースホルダ
-String like = "%" + keyword + "%";
-jdbc.query(SELECT_BASE + "WHERE p.title LIKE ? OR p.content LIKE ? ORDER BY p.id DESC",
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.dao.SecureUserDao</span>
+                <span class="doc-code-ref-method">#findByUsername</span>
+            </div>
+            <p class="doc-code-ref-desc">SQL には<strong>ユーザー名だけ</strong>渡してユーザ行を検索する（<code>?</code> で束縛）。ログイン時に画面上で打った<strong>その場のパスワードは SQL 文へは入れず</strong>、<code>WHERE password = …</code> のような比較もしない。DB から取れるのはあらかじめ保存してある<strong>パスワードのハッシュ文字列</strong>だけで、それと入力パスワードを突き合わせるのは<strong>SQL の外</strong>（Spring Security の認証処理と <code>BCryptPasswordEncoder</code> の <code>matches</code>）になっている。</p>
+        </div>
+        <pre class="doc-code-body">public Optional&lt;User&gt; findByUsername(String username) {
+    try {
+        return Optional.ofNullable(jdbc.queryForObject(
+            SELECT_COLUMNS + "WHERE username = ?",
+            ROW_MAPPER, username));
+    } catch (EmptyResultDataAccessException e) {
+        return Optional.empty();
+    }
+}</pre>
+    </div>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.dao.SecurePostDao</span>
+                <span class="doc-code-ref-method">#search</span>
+            </div>
+            <p class="doc-code-ref-desc"><code>LIKE</code> も値はすべてプレースホルダ。ワイルドカード文字もエスケープし、検索語を SQL の構造と混ぜない。</p>
+        </div>
+        <pre class="doc-code-body">String like = "%" + escapeLike(keyword) + "%";
+jdbc.query(
+    SELECT_BASE
+        + "WHERE p.title LIKE ? ESCAPE '\\\\' "
+        + "OR p.content LIKE ? ESCAPE '\\\\' "
+        + "ORDER BY p.id DESC",
     ROW_MAPPER, like, like);</pre>
+    </div>
 
     <h2>対策のポイント</h2>
     <ul>
