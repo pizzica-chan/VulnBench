@@ -9,7 +9,7 @@
 - XSS（蓄積型・反射型）
 - CSRF
 - パスワード平文保存
-- セッション管理不備（自前 Cookie の改ざん / セッション固定化）
+- セッション管理不備（脆弱版: 自前 Cookie 改ざん、対策版: セッション ID 再生成など）
 - 認可不備 / IDOR
 
 詳しい解説と攻撃ペイロード例は、起動後に `http://localhost:8080/docs` を参照してください。
@@ -19,7 +19,7 @@
 - **おすすめ:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Windows では WSL2 バックエンド推奨）
 - **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。**ソース変更を Docker へ反映する**ときは `./scripts/wsl-restart.sh` / Windows の `one-click-wsl-restart`（`docker compose up -d --build --force-recreate app`）を使う。コンテナだけ止めて同じイメージで立ち上げ直すだけなら `docker compose restart`。
 - **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
-- **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。
+- **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。**`8080` を他プロセスが使用中のときも競合**するため、必要なら `app.ports` を `"18080:8080"` のように変更し、ブラウザ側も `http://localhost:18080` に切り替えてください。
 
 ## 起動手順（自動化）
 
@@ -78,9 +78,10 @@ chmod +x scripts/wsl-up.sh scripts/wsl-down.sh scripts/wsl-restart.sh
 
 #### Docker での MySQL データ（教材用のリセット）
 
-- **DB はコンテナとともに捨てる前提です。** `docker-compose.yml` では MySQL のデータディレクトリを **tmpfs** に載せており、コンテナの**再作成**や**再起動**で空になります。起動後は Flyway と `DataSeeder` で毎回同じ初期スキーマ・初期データになります。
+- **DB はコンテナとともに捨てる前提です。** `docker-compose.yml` では MySQL のデータディレクトリを **tmpfs** に載せており、コンテナの**再作成**や**再起動**で空になります。起動後は Flyway と `DataSeeder` で初期スキーマ・初期データを投入します。
 - **`wsl-up.sh` と `docker-desktop-up.ps1`** は `docker compose up --build -d --force-recreate` を実行するため、これらのスクリプトで起動するたびに **クリーンな DB** になります。
 - 手動で `docker compose up -d` だけを使い、**すでに動いている MySQL コンテナを止めずに**再実行した場合は、そのコンテナ内のデータはそのままです（MySQL を止める・作り直すとリセットされます）。
+- `DataSeeder` は **`sec_users` が空のときだけ**投入を実行します。DB を残したままアプリのみ再起動した場合、2回目以降は投入がスキップされます。
 - 古い構成の **名前付きボリューム `secapp-mysql-data`** が環境に残っているなら、**`docker volume rm secapp-mysql-data` で削除推奨**です（現在の compose では定義しておらず、放置するとディスクを食うだけ＋古い学習データが残って混乱の原因になります）。`docker volume ls | findstr secapp` などで確認できます。
 
 ### WSL で起動する
@@ -169,6 +170,7 @@ mvn spring-boot:run
 ```
 
 JDK 21 と Maven が必要です。`application.yml` は `localhost:3306` を参照します。
+Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`docker-compose.yml`）により、`application-docker.yml` の `mysql:3306` を参照します。
 
 ブラウザで `http://localhost:8080` を開いてください。
 
@@ -208,7 +210,7 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 /vulnerable/users/{id}/update-email              メール更新（GET / POST どちらも通る）
 /vulnerable/users/{id}/change-password           パスワード変更（POST、現パス未照合）
 
-/secure/...                上記とほぼ同じパス構成。状態変更系はすべて POST + CSRF。
+/secure/...                上記とほぼ同じパス構成。状態変更系は POST + CSRF（ログアウトも POST）。
                             一覧 /secure/users は ADMIN のみ、コメント・投稿削除も POST 限定。
 ```
 
@@ -227,7 +229,7 @@ Dockerfile
 docker-compose.yml
 src/main/java/com/example/secapp/
   common/        共通エンティティ・DTO（両版で共有）
-  config/        SecurityConfig（/secure/** にだけ Spring Security 適用）, DataSeeder
+  config/        SecurityConfig（/secure/** 向け厳格チェーン + それ以外向け寛容チェーン）, DataSeeder
   vulnerable/    web / service / dao / auth   ←脆弱版の本体
   secure/        web / service / dao / auth   ←対策版の本体（vulnerable と鏡像）
   docs/          ランディング・解説ページ用 Controller
@@ -249,7 +251,7 @@ src/main/resources/
 
 | # | テーマ | 脆弱版で行うこと（概要） |
 |---|--------|-------------------------|
-| 1 | **SQLi（ログイン／検索）** | `/vulnerable/login` でユーザー名に `' OR 1=1 -- `（末尾スペース付き）、パスワード任意でログイン。**攻撃成功の目安:** 投稿一覧の見出し横に「`admin` でログイン中」と出る。検索 SQLi は `/docs/sqli` の手順を参照。 |
+| 1 | **SQLi（ログイン／検索／コメント）** | `/vulnerable/login` でユーザー名に `' OR 1=1 -- `（末尾スペース付き）、パスワード任意でログイン。**攻撃成功の目安:** 投稿一覧の見出し横に「`admin` でログイン中」と出る。検索 SQLi とコメント経路の SQLi は `/docs/sqli` の手順を参照。 |
 | 2 | **蓄積型 XSS** | `alice` / `wonderland` でログイン → 新規投稿の本文に `<script>alert(document.cookie)</script>`。**攻撃成功の目安:** 一覧や詳細でスクリプトが実行されアラートが出る。 |
 | 3 | **反射型 XSS** | `/vulnerable/posts` の検索に `<img src=x onerror=alert(1)>` を入力して検索。**攻撃成功の目安:** 一覧表示時に `alert(1)` が動く。 |
 | 4 | **CSRF / GET で状態変更** | ログイン後、**`/docs/csrf`** の手順どおり試す（GET 削除の複数パターン、別投稿 ID の GET 更新など）。単純な例だけなら新しいタブのアドレスバーに `/vulnerable/posts/1/delete` のような GET 削除 URL を入力してもよい。**攻撃成功の目安:** 意図せず状態が書き換わる。 |
@@ -265,3 +267,5 @@ src/main/resources/
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
 - インターネットに公開しないこと。ローカル環境だけで動かしてください。
 - `docker-compose.yml` / `application.yml` には MySQL の **学習用クレデンシャル**が平文で書かれています（**アプリ接続: `secapp` / `secapp`**、**MySQL root: `root` / `rootpass`**）。教材限定の前提で、**他環境への流用は避けて**ください。
+- JDBC URL の `useSSL=false` と `allowPublicKeyRetrieval=true` は、ローカル教材環境の接続優先設定です。本番では TLS を有効にし、接続オプションを環境ポリシーに合わせて見直してください。
+- `logging.level.org.springframework.jdbc.core=DEBUG` は教材として SQL を追いやすくするためです。本番では機微情報がログに残るリスクがあるため、通常は INFO 以上へ引き上げます。

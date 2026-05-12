@@ -39,6 +39,17 @@
     </ol>
     </th:block>
 
+    <h2>再現手順（コメント更新経由・VULNERABLE）</h2>
+    <ol>
+        <li><code>alice / wonderland</code> で <a th:href="@{/vulnerable/login}">脆弱版ログイン</a> する。</li>
+        <li><a th:href="@{/vulnerable/posts/1}"><code>/vulnerable/posts/1</code></a> を開き、コメントを1件投稿する。</li>
+        <li>投稿したコメントの「編集」を押し、本文に次をそのまま入力して更新する（末尾スペースまで含む）:
+            <pre>x' WHERE id = 1 OR 1=1 -- </pre>
+        </li>
+        <li><strong>攻撃成功の目安:</strong> 更新対象の 1 件だけでなく、複数コメントの本文が同じ値に変わる（<code>WHERE id = ...</code> が入力で上書きされる）。</li>
+        <li><a th:href="@{/secure/posts/1}">対策版の同じ画面</a>で同じ文字列を更新すると、SQL 文の構造は壊れず「ただの文字列」として保存される。</li>
+    </ol>
+
     <h2>VULNERABLE 側のコード</h2>
 
     <div class="doc-code-sample">
@@ -71,6 +82,19 @@ List&lt;User&gt; list = jdbc.query(sql, ROW_MAPPER);</pre>
         + "ORDER BY p.id DESC";</pre>
     </div>
 
+    <div class="doc-code-sample">
+        <div class="doc-code-ref" role="group" aria-label="この抜粋の参照元">
+            <span class="doc-code-ref-label">脆弱</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.dao.VulnerableCommentDao</span>
+                <span class="doc-code-ref-method">#update</span>
+            </div>
+            <p class="doc-code-ref-desc">コメント更新でも本文を SQL へ文字列連結しており、条件式を書き換えられる。</p>
+        </div>
+        <pre class="doc-code-body">String sql = "UPDATE vuln_comments SET content = '" + content + "' WHERE id = " + id;
+jdbc.update(sql);</pre>
+    </div>
+
     <h2>SECURE 側のコード</h2>
 
     <div class="doc-code-sample">
@@ -91,6 +115,18 @@ List&lt;User&gt; list = jdbc.query(sql, ROW_MAPPER);</pre>
         return Optional.empty();
     }
 }</pre>
+    </div>
+
+    <div class="doc-code-sample">
+        <div class="doc-code-ref doc-code-ref--secure" role="group" aria-label="この抜粋の参照元（対策）">
+            <span class="doc-code-ref-label">対策</span>
+            <div class="doc-code-ref-main">
+                <span class="doc-code-ref-fqcn">com.example.secapp.secure.dao.SecureCommentDao</span>
+                <span class="doc-code-ref-method">#update</span>
+            </div>
+            <p class="doc-code-ref-desc">更新値と ID を分離してバインドするため、入力は SQL 構文ではなく値として扱われる。</p>
+        </div>
+        <pre class="doc-code-body">jdbc.update("UPDATE sec_comments SET content = ? WHERE id = ?", content, id);</pre>
     </div>
 
     <div class="doc-code-sample">

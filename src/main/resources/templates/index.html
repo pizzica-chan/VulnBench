@@ -29,10 +29,10 @@
 
     <h2>学習の流れ</h2>
     <ol>
-        <li>まず <a th:href="@{/docs}">脆弱性解説 (/docs)</a> を読み、攻撃の概念をつかむ</li>
         <li><strong>脆弱版サイト</strong>で実際にペイロードを投入して攻撃を成立させる</li>
         <li><strong>対策版サイト</strong>でも同じペイロードを試して、成立しなくなる様子を確認する</li>
         <li>ソースコードの <code>vulnerable/</code> パッケージと <code>secure/</code> パッケージを diff で比較する</li>
+        <li>詳細手順や攻撃ペイロードは <a th:href="@{/docs}">脆弱性解説 (/docs)</a> で確認する</li>
     </ol>
 
     <h2>初期ユーザー（両版共通の認証情報）</h2>
