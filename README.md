@@ -19,6 +19,7 @@
 - **おすすめ:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Windows では WSL2 バックエンド推奨）
 - **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。**ソース変更を Docker へ反映する**ときは `./scripts/wsl-restart.sh` / Windows の `one-click-wsl-restart`（`docker compose up -d --build --force-recreate app`）を使う。コンテナだけ止めて同じイメージで立ち上げ直すだけなら `docker compose restart`。
 - **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
+- **AWS CodeBuild:** クラウドでビルドする場合は [AWS（CodeBuild）](#awscodebuild) を参照（ローカルの Docker 起動とは別手順）。
 - **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。**`8080` を他プロセスが使用中のときも競合**するため、必要なら `app.ports` を `"18080:8080"` のように変更し、ブラウザ側も `http://localhost:18080` に切り替えてください。
 
 ## 起動手順（自動化）
@@ -174,6 +175,113 @@ Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`d
 
 ブラウザで `http://localhost:8080` を開いてください。
 
+## AWS（CodeBuild）
+
+[`buildspec.yml`](buildspec.yml) は **AWS CodeBuild** 用のビルド手順書です。GitHub などからソースを取得し、クラウド上で **テスト → JAR 作成 → Docker イメージ作成 → ECR へアップロード** までを自動化します。
+
+ローカル開発が `docker compose` なのに対し、AWS 側は **「ビルドしてイメージをレジストリ（ECR）に置く」** ところまでがこの README の範囲です。ECS や RDS でアプリを動かす手順は含みません（CodePipeline で `imagedefinitions.json` を使う場合の入口だけ用意しています）。
+
+### 全体の流れ（イメージ）
+
+```
+[事前準備] ECR リポジトリ作成・CodeBuild 設定
+      ↓
+CodeBuild が buildspec.yml を実行
+      ↓
+  install   … JDK 21 (Corretto) を有効化
+  pre_build … ECR にログイン、イメージのタグを決める
+  build     … mvn test package → docker build
+  post_build… docker push → imagedefinitions.json 出力
+      ↓
+成果物: secapp.jar / imagedefinitions.json（＋ ECR 上の Docker イメージ）
+```
+
+CodeBuild では `commands` の各ブロックが **別プロセス** で動くため、`buildspec.yml` ではフェーズ間で `IMAGE_TAG` などを `.codebuild-env` 経由で引き継いでいます。
+
+### 初回だけやること（チェックリスト）
+
+ビルドを走らせる**前**に、次を揃えてください。
+
+| # | やること | メモ |
+|---|----------|------|
+| 1 | **ECR リポジトリを作成** | 名前は既定で `secapp`（`buildspec.yml` の `IMAGE_REPO_NAME` と一致させる） |
+| 2 | **CodeBuild プロジェクトを作成** | ソースに本リポジトリ、ビルド仕様はリポジトリの `buildspec.yml` |
+| 3 | **特権モードを有効** | Docker ビルドに必要（下記「JAR のみ」なら不要） |
+| 4 | **リージョンを設定** | 環境変数 `AWS_DEFAULT_REGION` または `AWS_REGION`（例: `ap-northeast-1`） |
+| 5 | **サービスロールに IAM を付与** | 下記「IAM」のとおり |
+
+**ECR リポジトリ作成例**（リージョン・リポジトリ名は環境に合わせて変更）:
+
+```bash
+aws ecr create-repository --repository-name secapp --region ap-northeast-1
+```
+
+リポジトリ名を変えた場合は、CodeBuild の環境変数 `IMAGE_REPO_NAME` も同じ名前にします。
+
+### CodeBuild プロジェクトの設定
+
+| 項目 | 推奨値 |
+|------|--------|
+| ビルド仕様 | リポジトリ内 `buildspec.yml`（ルートに配置済み） |
+| 環境イメージ | `aws/codebuild/amazonlinux-x86_64-standard:5.0` など |
+| 特権モード | **有効**（Docker を使う場合） |
+| 環境変数 | `AWS_DEFAULT_REGION` = 利用リージョン |
+
+**任意の環境変数**
+
+| 変数 | 既定値 | 説明 |
+|------|--------|------|
+| `IMAGE_REPO_NAME` | `secapp` | ECR リポジトリ名（#1 で作った名前と一致） |
+| `IMAGE_TAG` | コミット SHA 先頭 7 桁 | 上書きしたいときだけ指定 |
+| `SKIP_DOCKER_PUSH` | （未設定 = Docker あり） | `true` にすると **Maven ビルドと JAR のみ**（Docker / ECR なし） |
+
+### IAM（CodeBuild のサービスロール）
+
+Docker イメージまで push する場合、ロールに少なくとも次が必要です。
+
+- `sts:GetCallerIdentity`
+- `ecr:GetAuthorizationToken`（Resource: `*`）
+- 対象リポジトリへの push 系（例: `ecr:BatchCheckLayerAvailability`, `ecr:PutImage`, `ecr:InitiateLayerUpload`, `ecr:UploadLayerPart`, `ecr:CompleteLayerUpload`）
+
+実務では AWS マネジメントコンソールの **「ECR へのアクセス権限を持つポリシー」** をロールにアタッチする方法が簡単です。
+
+### ビルド成果物
+
+| 出力 | 用途 |
+|------|------|
+| `target/secapp.jar` | Spring Boot の実行 JAR |
+| `imagedefinitions.json` | ECS デプロイ用（コンテナ名 `app` は `docker-compose.yml` のサービス名に合わせています） |
+| ECR 上のイメージ | `secapp:<タグ>` として保存（Docker 利用時） |
+
+Maven の依存は `.m2/repository` にキャッシュします。テストは DB 不要（モックのみ）なので、MySQL なしで `mvn test` が通ります。
+
+### ビルドが失敗したとき（フェーズ別）
+
+ログに `ERROR:` と出る行を手がかりにしてください。**失敗するフェーズによって原因が違います。**
+
+| フェーズ | よくある原因 | 対処 |
+|--------|--------------|------|
+| **PRE_BUILD** | リージョン未設定 | `AWS_DEFAULT_REGION` を CodeBuild に設定 |
+| **PRE_BUILD** | Docker が使えない | **特権モード**を有効化。または `SKIP_DOCKER_PUSH=true` |
+| **PRE_BUILD** | IAM 不足（ログイン前） | `ecr:GetAuthorizationToken`、`sts:GetCallerIdentity` |
+| **BUILD** | テスト・コンパイル失敗 | ログの Maven エラーを修正（ローカルで `mvn test` を再現） |
+| **POST_BUILD** | **ECR リポジトリが無い** | `aws ecr create-repository` で作成（名前は `IMAGE_REPO_NAME` と一致） |
+| **POST_BUILD** | push 権限不足 | サービスロールに ECR push 権限を追加 |
+
+補足: **ECR リポジトリが無い**と、多くの場合 **POST_BUILD の `docker push` で失敗**します。PRE_BUILD の「レジストリへのログイン」は通っても、push の段階で `RepositoryNotFoundException` などになります。PRE_BUILD で落ちる場合は、上表のリージョン・特権モード・IAM を先に確認してください。
+
+### Docker を使わないビルドだけ試す場合
+
+ECR や Docker の準備がまだのときは、CodeBuild の環境変数に次を設定すると、**`mvn test package` と JAR アーティファクトだけ**実行します。
+
+```
+SKIP_DOCKER_PUSH=true
+```
+
+### 注意（教材アプリ）
+
+本アプリは**意図的に脆弱な教材**です。[重要な注意](#重要な注意)のとおり、**インターネット公開や本番運用には使わない**でください。AWS 上で試す場合も閉じた検証環境に限定し、学習用クレデンシャルや `/vulnerable/**` をそのまま外部に晒さないでください。
+
 ## 初期ユーザー（両版共通の認証情報）
 
 | ユーザー名 | パスワード   | 役割  |
@@ -225,6 +333,7 @@ scripts/               WSL / Windows / ワンクリック用の起動・停止�
   wsl-up.sh / wsl-down.sh / wsl-restart.sh
   docker-desktop-up.ps1 / docker-desktop-down.ps1
   docker-desktop-up.cmd / docker-desktop-down.cmd
+buildspec.yml          AWS CodeBuild 用ビルド定義
 Dockerfile
 docker-compose.yml
 src/main/java/com/example/secapp/

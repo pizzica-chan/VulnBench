@@ -1,80 +1,217 @@
+# =============================================================================
 # AWS CodeBuild 用ビルド定義（SecApp / Spring Boot 3 + JDK 21）
+# =============================================================================
 #
-# 想定:
-#   - 標準イメージ（例: aws/codebuild/amazonlinux-x86_64-standard:5.0）
-#   - runtime-versions.java: corretto21
-#   - Docker イメージを ECR に push する場合は CodeBuild プロジェクトで privilegedMode: true
+# 【このファイルの役割】
+#   Git ソースからアプリをビルドし、成果物（JAR / Docker イメージ）を出力する。
+#   詳細な手順・初回セットアップは README.md の「AWS（CodeBuild）」を参照。
 #
-# CodeBuild プロジェクトで設定する環境変数（例）:
-#   IMAGE_REPO_NAME   … ECR リポジトリ名（未設定時は secapp）
-#   IMAGE_TAG         … 未設定時はコミット SHA 先頭 7 桁（取得できない場合は latest）
-#   SKIP_DOCKER_PUSH  … "true" のとき Docker ビルド・ECR push をスキップ（JAR のみ）
+# 【CodeBuild プロジェクト側の前提】
+#   - 環境イメージ例: aws/codebuild/amazonlinux-x86_64-standard:5.0
+#   - install.runtime-versions.java: corretto21（下記 install フェーズ）
+#   - Docker 利用時: privilegedMode（特権モード）= true
+#   - 環境変数 AWS_DEFAULT_REGION または AWS_REGION を設定
+#   - ECR リポジトリを事前作成（既定名 secapp。build 前に create-repository）
+#
+# 【CodeBuild プロジェクトで上書きできる環境変数】
+#   IMAGE_REPO_NAME   … ECR リポジトリ名（未設定時は下記 env.variables の secapp）
+#   IMAGE_TAG         … イメージタグ（未設定時はコミット SHA 先頭 7 桁 → なければ latest）
+#   SKIP_DOCKER_PUSH  … "true" のとき Docker ビルド・ECR push を行わない（JAR のみ）
+#
+# 【CodeBuild が自動で渡す主な変数】
+#   CODEBUILD_SRC_DIR              … チェックアウトされたソースのルート
+#   CODEBUILD_RESOLVED_SOURCE_VERSION … ビルド対象のコミット ID（タグ生成に利用）
+#   AWS_DEFAULT_REGION / AWS_REGION … リージョン
+#
+# 【フェーズ間の変数引き継ぎについて】
+#   CodeBuild の commands は「リストの要素ごとに別シェル」で実行される。
+#   そのため export した変数は次の要素や次フェーズに残らない。
+#   対策: (1) 各フェーズを 1 つの |- ブロックにまとめる
+#         (2) .codebuild-env に書き出し、後続フェーズで source する
+#         (3) env.exported-variables で CodeBuild に渡す（補助）
 #
 version: 0.2
 
+# -----------------------------------------------------------------------------
+# 環境変数・エクスポート
+# -----------------------------------------------------------------------------
 env:
   variables:
+    # ECR のリポジトリ名。aws ecr create-repository --repository-name と一致させる
     IMAGE_REPO_NAME: secapp
+    # Maven のローカルリポジトリをソース直下に置く（cache.paths と対応）
     MAVEN_OPTS: "-Dmaven.repo.local=$CODEBUILD_SRC_DIR/.m2/repository"
 
+  # pre_build で export した変数を build / post_build でも参照できるようにする
+  # （.codebuild-env との二重化だが、CodeBuild 標準の引き継ぎ手段として併用）
+  exported-variables:
+    - IMAGE_TAG
+    - IMAGE_URI
+    - SKIP_DOCKER_PUSH
+
+# -----------------------------------------------------------------------------
+# ビルドフェーズ
+# -----------------------------------------------------------------------------
 phases:
+
+  # ---------------------------------------------------------------------------
+  # install: ランタイムの準備（ビルドツールのバージョン確認）
+  # ---------------------------------------------------------------------------
   install:
     runtime-versions:
+      # 標準イメージ上で Corretto 21 を有効化（pom.xml の java.version と一致）
       java: corretto21
     commands:
       - java -version
       - mvn -version
 
+  # ---------------------------------------------------------------------------
+  # pre_build: タグ決定・ECR ログイン・後続フェーズ用 env ファイル生成
+  # ---------------------------------------------------------------------------
   pre_build:
     commands:
       - echo "Build started at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      # このブロック全体を 1 シェルで実行（変数と BUILD_ENV を一貫して設定）
       - |
+        set -euo pipefail
+        # 後続の build / post_build で source する共有 env ファイル
+        BUILD_ENV="${CODEBUILD_SRC_DIR}/.codebuild-env"
+
+        # --- イメージタグの決定 ---
+        # CodeBuild プロジェクトで IMAGE_TAG が未設定なら、コミット SHA の短縮版を使う
         if [ -z "${IMAGE_TAG:-}" ]; then
           if [ -n "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}" ]; then
-            export IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
+            IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
           else
-            export IMAGE_TAG=latest
+            IMAGE_TAG=latest
           fi
         fi
-        echo "IMAGE_TAG=$IMAGE_TAG"
-      - |
-        if [ "${SKIP_DOCKER_PUSH:-false}" != "true" ]; then
-          export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-          export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
-          export IMAGE_URI="${ECR_REGISTRY}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
-          echo "ECR image: $IMAGE_URI"
-          aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
-            | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+        export IMAGE_TAG
+
+        # --- リージョンの決定 ---
+        # プロジェクトに AWS_DEFAULT_REGION が無いと ECR の URL が組み立てられない
+        REGION="${AWS_DEFAULT_REGION:-${AWS_REGION:-}}"
+        if [ -z "$REGION" ]; then
+          echo "ERROR: AWS_DEFAULT_REGION または AWS_REGION を CodeBuild プロジェクトに設定してください。"
+          exit 1
+        fi
+        export AWS_DEFAULT_REGION="$REGION"
+
+        # --- Docker / ECR をスキップするモード（JAR ビルドのみ）---
+        if [ "${SKIP_DOCKER_PUSH:-false}" = "true" ]; then
+          echo "SKIP_DOCKER_PUSH=true — Docker / ECR をスキップします"
+          export IMAGE_URI=""
+          # %q でシェルエスケープして安全に書き出す
+          printf 'export IMAGE_TAG=%q\nexport IMAGE_URI=\nexport SKIP_DOCKER_PUSH=true\n' "$IMAGE_TAG" > "$BUILD_ENV"
+          exit 0
         fi
 
+        # --- Docker 実行環境の確認 ---
+        # 特権モード OFF だと docker コマンドが無い、またはデーモンに繋がらない
+        if ! command -v docker >/dev/null 2>&1; then
+          echo "ERROR: docker コマンドがありません。CodeBuild の特権モード (privileged mode) を有効にするか、SKIP_DOCKER_PUSH=true を設定してください。"
+          exit 1
+        fi
+        if ! docker info >/dev/null 2>&1; then
+          echo "ERROR: Docker デーモンに接続できません。特権モード (privileged mode) が有効か確認してください。"
+          exit 1
+        fi
+
+        # --- AWS アカウント ID の取得（ECR レジストリ URL 用）---
+        echo "Resolving AWS account..."
+        AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+        if [ -z "$AWS_ACCOUNT_ID" ] || [ "$AWS_ACCOUNT_ID" = "None" ]; then
+          echo "ERROR: sts:GetCallerIdentity に失敗しました。CodeBuild のサービスロールに sts:GetCallerIdentity 権限があるか確認してください。"
+          exit 1
+        fi
+
+        # 例: 123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/secapp:abc1234
+        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com"
+        IMAGE_URI="${ECR_REGISTRY}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+        export AWS_ACCOUNT_ID ECR_REGISTRY IMAGE_URI
+
+        echo "IMAGE_TAG=$IMAGE_TAG"
+        echo "ECR image: $IMAGE_URI"
+
+        # --- ECR レジストリへのログイン ---
+        # ログイン先は「レジストリ」単位。リポジトリ未作成でもログイン自体は通ることが多い
+        # （リポジトリ未作成で失敗しやすいのは post_build の docker push）
+        echo "Logging in to ECR ($ECR_REGISTRY)..."
+        if ! aws ecr get-login-password --region "$REGION" | docker login --username AWS --password-stdin "$ECR_REGISTRY"; then
+          echo "ERROR: ECR ログインに失敗しました。次を確認してください:"
+          echo "  - IAM: ecr:GetAuthorizationToken (Resource: *)"
+          echo "  - CodeBuild の特権モードが有効か"
+          echo "  - AWS_DEFAULT_REGION が正しいか"
+          exit 1
+        fi
+
+        # build / post_build 用に変数をファイルへ保存
+        printf 'export IMAGE_TAG=%q\nexport IMAGE_URI=%q\nexport SKIP_DOCKER_PUSH=false\n' \
+          "$IMAGE_TAG" "$IMAGE_URI" > "$BUILD_ENV"
+
+  # ---------------------------------------------------------------------------
+  # build: Maven ビルド（テスト含む）→ Docker イメージ作成
+  # ---------------------------------------------------------------------------
   build:
     commands:
-      - mvn -B test package
       - |
+        set -euo pipefail
+        # pre_build で書いた変数を読み込む（別シェルなので source が必要）
+        if [ -f "${CODEBUILD_SRC_DIR}/.codebuild-env" ]; then
+          # shellcheck disable=SC1090
+          . "${CODEBUILD_SRC_DIR}/.codebuild-env"
+        fi
+
+        # -B: バッチモード（対話なし） / test: ユニットテスト（DB 不要・モックのみ）
+        # package: target/secapp.jar を生成（pom.xml の finalName=secapp）
+        mvn -B test package
+
         if [ "${SKIP_DOCKER_PUSH:-false}" != "true" ]; then
+          # ルートの Dockerfile（マルチステージ: Maven ビルド → JRE で実行）
           docker build -t "${IMAGE_REPO_NAME}:${IMAGE_TAG}" .
+          # ECR push 用のフル URI タグを付与
           docker tag "${IMAGE_REPO_NAME}:${IMAGE_TAG}" "${IMAGE_URI}"
         fi
 
+  # ---------------------------------------------------------------------------
+  # post_build: ECR へ push、ECS CodeDeploy 用 imagedefinitions.json 生成
+  # ---------------------------------------------------------------------------
   post_build:
     commands:
       - |
+        set -euo pipefail
+        if [ -f "${CODEBUILD_SRC_DIR}/.codebuild-env" ]; then
+          # shellcheck disable=SC1090
+          . "${CODEBUILD_SRC_DIR}/.codebuild-env"
+        fi
+
         if [ "${SKIP_DOCKER_PUSH:-false}" != "true" ]; then
+          # ここで ECR リポジトリ（IMAGE_REPO_NAME）が無いと RepositoryNotFound 等で失敗
           docker push "${IMAGE_URI}"
+          # name "app" は docker-compose.yml の app サービス名（ECS タスク定義と合わせる）
           printf '[{"name":"app","imageUri":"%s"}]' "${IMAGE_URI}" > imagedefinitions.json
           cat imagedefinitions.json
         else
           echo "SKIP_DOCKER_PUSH=true — Docker push skipped"
+          # artifacts に imagedefinitions.json が必須のため、空配列を出力
           echo '[]' > imagedefinitions.json
         fi
       - echo "Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+# -----------------------------------------------------------------------------
+# 成果物（CodePipeline のアーティファクトストア等へ出力）
+# -----------------------------------------------------------------------------
 artifacts:
   files:
-    - target/secapp.jar
-    - imagedefinitions.json
+    - target/secapp.jar          # Spring Boot 実行 JAR
+    - imagedefinitions.json      # ECS デプロイ用（Docker スキップ時は []）
+  # アーティファクト ZIP 内でディレクトリ階層を捨て、ファイル名だけにする
   discard-paths: yes
 
+# -----------------------------------------------------------------------------
+# キャッシュ（次回ビルドで Maven 依存のダウンロードを省略）
+# -----------------------------------------------------------------------------
 cache:
   paths:
+    # MAVEN_OPTS のローカルリポジトリと同じパス
     - .m2/repository/**/*
