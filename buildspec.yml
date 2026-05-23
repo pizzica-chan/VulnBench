@@ -4,14 +4,57 @@
 #
 # 【このファイルの役割】
 #   Git ソースからアプリをビルドし、成果物（JAR / Docker イメージ）を出力する。
-#   詳細な手順・初回セットアップは README.md の「AWS（CodeBuild）」を参照。
+#   手順の解説・トラブルシュートは README.md の「AWS（CodeBuild）」を参照。
 #
-# 【CodeBuild プロジェクト側の前提】
-#   - 環境イメージ例: aws/codebuild/amazonlinux-x86_64-standard:5.0
-#   - install.runtime-versions.java: corretto21（下記 install フェーズ）
-#   - Docker 利用時: privilegedMode（特権モード）= true
-#   - 環境変数 AWS_DEFAULT_REGION または AWS_REGION を設定
-#   - ECR リポジトリを事前作成（既定名 secapp。build 前に create-repository）
+# =============================================================================
+# 【動かすための前提条件】（ビルド実行前に満たすこと）
+# =============================================================================
+#
+# ■ AWS リソース（初回セットアップ）
+#   [必須] CodeBuild プロジェクト
+#          - ソース: 本リポジトリ（GitHub / CodeCommit 等）
+#          - ビルド仕様: リポジトリルートの buildspec.yml（このファイル）
+#   [必須] ECR リポジトリ（Docker push する場合）
+#          - 既定名 secapp（変更時は env.variables.IMAGE_REPO_NAME と CodeBuild 環境変数を一致）
+#          - 作成例:
+#              aws ecr create-repository --repository-name secapp --region ap-northeast-1
+#   [不要] MySQL / RDS … ユニットテストはモックのみ。ビルド時に DB は不要
+#   [不要] ECS / ALB … 本 buildspec はビルドと ECR push まで（実行基盤は別途）
+#
+# ■ CodeBuild プロジェクトの設定
+#   [必須] 環境イメージ … aws/codebuild/amazonlinux-x86_64-standard:5.0 など（標準イメージ）
+#   [必須] 環境変数 … AWS_DEFAULT_REGION または AWS_REGION（ECR と同じリージョン）
+#   [必須] サービスロール … 下記 IAM を付与したロールをアタッチ
+#   [Docker 時必須] 特権モード（privilegedMode）= true
+#   [任意] ソースバージョン … ブランチ / タグ（未指定時はデフォルトブランチ）
+#   [任意] アーティファクト … CodePipeline 連携時は S3 等（単体 CodeBuild でも可）
+#
+# ■ IAM（CodeBuild のサービスロールに付与）
+#   Docker イメージまで push する場合（SKIP_DOCKER_PUSH 未設定）:
+#     - sts:GetCallerIdentity
+#     - ecr:GetAuthorizationToken（Resource: *）
+#     - ecr:BatchCheckLayerAvailability, ecr:PutImage, ecr:InitiateLayerUpload,
+#       ecr:UploadLayerPart, ecr:CompleteLayerUpload（対象: ECR リポジトリ ARN）
+#   JAR のみ（SKIP_DOCKER_PUSH=true）の場合:
+#     - sts 不要、ecr 不要（Maven ビルドとアーティファクト出力のみ）
+#     - 特権モードも不要
+#
+# ■ ソースリポジトリ側
+#   [必須] リポジトリルートに pom.xml, src/, Dockerfile が存在すること
+#   [必須] JDK 21 想定（install で corretto21 を有効化。pom.xml の java.version と一致）
+#
+# ■ ネットワーク
+#   [必須] CodeBuild から Maven Central 等へ outbound（既定のインターネットアクセスで可）
+#   [必須] Docker 利用時はベースイメージ pull（Docker Hub / ECR Public 等）が可能であること
+#
+# ■ 教材アプリとしての注意
+#   本アプリは意図的に脆弱な学習用です。公開環境での運用・インターネット公開は想定しません。
+#
+# ■ 最小構成で試す場合（Docker / ECR なし）
+#   CodeBuild 環境変数に SKIP_DOCKER_PUSH=true を設定すると、
+#   ECR リポジトリ・特権モード・ECR 系 IAM は不要（mvn test package のみ）。
+#
+# =============================================================================
 #
 # 【CodeBuild プロジェクトで上書きできる環境変数】
 #   IMAGE_REPO_NAME   … ECR リポジトリ名（未設定時は下記 env.variables の secapp）
