@@ -1,0 +1,80 @@
+# AWS CodeBuild 用ビルド定義（SecApp / Spring Boot 3 + JDK 21）
+#
+# 想定:
+#   - 標準イメージ（例: aws/codebuild/amazonlinux-x86_64-standard:5.0）
+#   - runtime-versions.java: corretto21
+#   - Docker イメージを ECR に push する場合は CodeBuild プロジェクトで privilegedMode: true
+#
+# CodeBuild プロジェクトで設定する環境変数（例）:
+#   IMAGE_REPO_NAME   … ECR リポジトリ名（未設定時は secapp）
+#   IMAGE_TAG         … 未設定時はコミット SHA 先頭 7 桁（取得できない場合は latest）
+#   SKIP_DOCKER_PUSH  … "true" のとき Docker ビルド・ECR push をスキップ（JAR のみ）
+#
+version: 0.2
+
+env:
+  variables:
+    IMAGE_REPO_NAME: secapp
+    MAVEN_OPTS: "-Dmaven.repo.local=$CODEBUILD_SRC_DIR/.m2/repository"
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+    commands:
+      - java -version
+      - mvn -version
+
+  pre_build:
+    commands:
+      - echo "Build started at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+      - |
+        if [ -z "${IMAGE_TAG:-}" ]; then
+          if [ -n "${CODEBUILD_RESOLVED_SOURCE_VERSION:-}" ]; then
+            export IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:0:7}"
+          else
+            export IMAGE_TAG=latest
+          fi
+        fi
+        echo "IMAGE_TAG=$IMAGE_TAG"
+      - |
+        if [ "${SKIP_DOCKER_PUSH:-false}" != "true" ]; then
+          export AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          export ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
+          export IMAGE_URI="${ECR_REGISTRY}/${IMAGE_REPO_NAME}:${IMAGE_TAG}"
+          echo "ECR image: $IMAGE_URI"
+          aws ecr get-login-password --region "$AWS_DEFAULT_REGION" \
+            | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+        fi
+
+  build:
+    commands:
+      - mvn -B test package
+      - |
+        if [ "${SKIP_DOCKER_PUSH:-false}" != "true" ]; then
+          docker build -t "${IMAGE_REPO_NAME}:${IMAGE_TAG}" .
+          docker tag "${IMAGE_REPO_NAME}:${IMAGE_TAG}" "${IMAGE_URI}"
+        fi
+
+  post_build:
+    commands:
+      - |
+        if [ "${SKIP_DOCKER_PUSH:-false}" != "true" ]; then
+          docker push "${IMAGE_URI}"
+          printf '[{"name":"app","imageUri":"%s"}]' "${IMAGE_URI}" > imagedefinitions.json
+          cat imagedefinitions.json
+        else
+          echo "SKIP_DOCKER_PUSH=true — Docker push skipped"
+          echo '[]' > imagedefinitions.json
+        fi
+      - echo "Build completed at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+artifacts:
+  files:
+    - target/secapp.jar
+    - imagedefinitions.json
+  discard-paths: yes
+
+cache:
+  paths:
+    - .m2/repository/**/*
