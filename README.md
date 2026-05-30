@@ -19,7 +19,8 @@
 - **おすすめ:** [Docker Desktop](https://www.docker.com/products/docker-desktop/)（Windows では WSL2 バックエンド推奨）
 - **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。**ソース変更を Docker へ反映する**ときは `./scripts/wsl-restart.sh` / Windows の `one-click-wsl-restart`（`docker compose up -d --build --force-recreate app`）を使う。コンテナだけ止めて同じイメージで立ち上げ直すだけなら `docker compose restart`。
 - **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
-- **AWS CodeBuild:** クラウドでビルドする場合は [AWS（CodeBuild）](#awscodebuild) を参照（ローカルの Docker 起動とは別手順）。
+- **AWS CodeBuild:** クラウドでビルドする場合は [AWS（CodeBuild）](#awscodebuild) を参照（単体 CodeBuild 用。ローカルの Docker 起動とは別手順）。
+- **AWS デモ公開:** インターネットから ALB 経由で試す場合は [AWS（デモ公開 / CodePipeline）](#awsデモ公開--codepipeline) を参照（CloudFormation + ワンクリック bat。詳細は [`aws/README.md`](aws/README.md)）。
 - **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。**`8080` を他プロセスが使用中のときも競合**するため、必要なら `app.ports` を `"18080:8080"` のように変更し、ブラウザ側も `http://localhost:18080` に切り替えてください。
 
 ## 起動手順（自動化）
@@ -175,11 +176,61 @@ Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`d
 
 ブラウザで `http://localhost:8080` を開いてください。
 
+## AWS（デモ公開 / CodePipeline）
+
+**個人デモ向け**に、CloudFormation で ALB + ECS Fargate + CodePipeline を一括作成し、インターネットから HTTP でアクセスできる構成です。
+
+| 項目 | 内容 |
+|------|------|
+| 公開 URL | `http://{ALB の DNS 名}`（`09_aws-app-url.bat` で表示） |
+| 配備 | CodePipeline（Build → Test → ECS ローリング） |
+| 初期タスク数 | `0`（`04_aws-ecs-start.bat` で手動起動） |
+| ビルド定義 | **`aws/buildspec-build.yml`** / **`aws/buildspec-test.yml`** |
+
+ルートの [`buildspec.yml`](buildspec.yml) は **この Pipeline では使いません**（別の CodeBuild プロジェクト用に残しています）。
+
+### ワンクリック bat（リポジトリ直下）
+
+| bat | 内容 |
+|-----|------|
+| `02_aws-deploy.bat` | CloudFormation デプロイ（初回・更新） |
+| `03_aws-pipeline-run.bat` | Pipeline 手動実行 |
+| `04_aws-ecs-start.bat` | ECS 起動（desired-count=1） |
+| `05_aws-ecs-stop.bat` | ECS 停止（Fargate 課金抑制） |
+| `06_aws-stack-delete.bat` | スタック完全削除 |
+| `07_aws-mysql-shell.bat` | ECS 上の MySQL クライアント |
+| `08_aws-mysql-portforward.bat` | MySQL を localhost:13306 に転送 |
+| `09_aws-app-url.bat` | ALB のアプリ URL 表示 |
+
+**注意:** 他プロジェクト（例: gourmet-map）の bat と名前が似ています。**必ず本リポジトリ（VulnBench / secure）直下の bat を実行**してください。
+
+### 初回セットアップ（要点）
+
+1. **GitHub 連携** … AWS コンソールの [Connections](https://console.aws.amazon.com/codesuite/settings/connections) で GitHub を接続し、Connection ARN を取得
+2. **`aws/deploy.env` を作成** … `copy aws\deploy.env.example aws\deploy.env` のあと `GITHUB_CONNECTION_ARN` と `REPOSITORY_ID` を設定
+3. **`aws/` を GitHub に push** … Pipeline は GitHub からソースを取得するため、**CloudFormation デプロイ前に** `aws/buildspec-build.yml` 等がリモートに存在している必要があります（未 push だと Build が `buildspec-build.yml: no such file` で失敗します）
+4. **`02_aws-deploy.bat`** … スタック作成
+5. **`03_aws-pipeline-run.bat`** … イメージビルド・ECR push・ECS デプロイ（Git push では自動起動しません）
+6. **`04_aws-ecs-start.bat`** … タスク起動
+7. **`09_aws-app-url.bat`** … URL 確認
+
+手順の全文・課金・トラブルシュートは **[`aws/README.md`](aws/README.md)** を参照してください。
+
+### ソース変更を AWS に反映するとき
+
+1. 変更を GitHub の `master`（または `deploy.env` の `BRANCH_NAME`）へ push
+2. `03_aws-pipeline-run.bat` を実行
+3. Deploy 成功後、必要なら `04_aws-ecs-start.bat`（停止中だった場合）
+
+### 注意（教材アプリ × インターネット公開）
+
+本アプリは**意図的に脆弱な教材**です。AWS デモ構成は **HTTP のみ・WAF なし** で URL を知っていれば誰でもアクセスできます。**デモ・検証目的に限定**し、使わないときは `05_aws-ecs-stop.bat` または `06_aws-stack-delete.bat` で課金を抑えてください。
+
 ## AWS（CodeBuild）
 
-[`buildspec.yml`](buildspec.yml) は **AWS CodeBuild** 用のビルド手順書です。GitHub などからソースを取得し、クラウド上で **テスト → JAR 作成 → Docker イメージ作成 → ECR へアップロード** までを自動化します。
+[`buildspec.yml`](buildspec.yml) は **単体の AWS CodeBuild プロジェクト** 用のビルド手順書です。GitHub などからソースを取得し、クラウド上で **テスト → JAR 作成 → Docker イメージ作成 → ECR へアップロード** までを自動化します。
 
-ローカル開発が `docker compose` なのに対し、AWS 側は **「ビルドしてイメージをレジストリ（ECR）に置く」** ところまでがこの README の範囲です。ECS や RDS でアプリを動かす手順は含みません（CodePipeline で `imagedefinitions.json` を使う場合の入口だけ用意しています）。
+[AWS（デモ公開 / CodePipeline）](#awsデモ公開--codepipeline) とは **別系統** です。こちらは CodePipeline / ECS デプロイまでは含みません（`imagedefinitions.json` を出力する入口だけ用意しています）。
 
 ### 全体の流れ（イメージ）
 
@@ -280,7 +331,7 @@ SKIP_DOCKER_PUSH=true
 
 ### 注意（教材アプリ）
 
-本アプリは**意図的に脆弱な教材**です。[重要な注意](#重要な注意)のとおり、**インターネット公開や本番運用には使わない**でください。AWS 上で試す場合も閉じた検証環境に限定し、学習用クレデンシャルや `/vulnerable/**` をそのまま外部に晒さないでください。
+本アプリは**意図的に脆弱な教材**です。[重要な注意](#重要な注意)のとおり、**本番運用には使わない**でください。インターネット公開が必要な場合は [AWS（デモ公開 / CodePipeline）](#awsデモ公開--codepipeline) のデモ構成に限定し、閉じた検証以外では使わないでください。
 
 ## 初期ユーザー（両版共通の認証情報）
 
@@ -325,6 +376,7 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 ## ディレクトリ構成（重要部分）
 
 ```
+02_aws-deploy.bat … 09_aws-app-url.bat   AWS デモ公開用ワンクリック（CloudFormation / Pipeline / ECS）
 scripts/               WSL / Windows / ワンクリック用の起動・停止スクリプト
   one-click-wsl-up.cmd / one-click-wsl-up.ps1   Windows→WSL ワンクリック起動
   one-click-wsl-down.cmd / one-click-wsl-down.ps1  同上の停止
@@ -333,7 +385,8 @@ scripts/               WSL / Windows / ワンクリック用の起動・停止�
   wsl-up.sh / wsl-down.sh / wsl-restart.sh
   docker-desktop-up.ps1 / docker-desktop-down.ps1
   docker-desktop-up.cmd / docker-desktop-down.cmd
-buildspec.yml          AWS CodeBuild 用ビルド定義
+aws/                   AWS デモ公開（CloudFormation, Pipeline 用 buildspec, deploy.env.example, scripts/）
+buildspec.yml          単体 CodeBuild 用ビルド定義（Pipeline とは別）
 Dockerfile
 docker-compose.yml
 src/main/java/com/example/secapp/
@@ -374,7 +427,8 @@ src/main/resources/
 
 - これは学習用アプリです。本番運用には絶対に使わないでください。
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
-- インターネットに公開しないこと。ローカル環境だけで動かしてください。
+- **ローカル Docker** ではインターネットに公開しないこと。ローカル環境だけで動かしてください。
+- **AWS デモ公開**（[`aws/README.md`](aws/README.md)）は任意の検証用です。HTTP のみで脆弱版が外部から触れるため、デモ目的・自己責任に限定してください。
 - `docker-compose.yml` / `application.yml` には MySQL の **学習用クレデンシャル**が平文で書かれています（**アプリ接続: `secapp` / `secapp`**、**MySQL root: `root` / `rootpass`**）。教材限定の前提で、**他環境への流用は避けて**ください。
 - JDBC URL の `useSSL=false` と `allowPublicKeyRetrieval=true` は、ローカル教材環境の接続優先設定です。本番では TLS を有効にし、接続オプションを環境ポリシーに合わせて見直してください。
 - `logging.level.org.springframework.jdbc.core=DEBUG` は教材として SQL を追いやすくするためです。本番では機微情報がログに残るリスクがあるため、通常は INFO 以上へ引き上げます。
