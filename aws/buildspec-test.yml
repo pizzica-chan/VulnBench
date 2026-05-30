@@ -1,0 +1,22 @@
+# CodePipeline Test stage: Maven unit tests (no DB required)
+version: 0.2
+
+env:
+  variables:
+    MAVEN_OPTS: "-Dmaven.repo.local=$CODEBUILD_SRC_DIR/.m2/repository"
+
+phases:
+  install:
+    runtime-versions:
+      java: corretto21
+    commands:
+      - java -version
+      - mvn -version
+  build:
+    commands:
+      - echo "Running Maven tests..."
+      - mvn -B test
+
+cache:
+  paths:
+    - .m2/repository/**/*

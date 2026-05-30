@@ -1,0 +1,34 @@
+# CodePipeline Build: Docker build -> ECR push -> imagedefinitions.json for ECS deploy
+version: 0.2
+
+env:
+  variables:
+    IMAGE_TAG: latest
+  exported-variables:
+    - IMAGE_TAG
+
+phases:
+  pre_build:
+    commands:
+      - echo "Logging in to Amazon ECR..."
+      - aws ecr get-login-password --region "$AWS_DEFAULT_REGION" | docker login --username AWS --password-stdin "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com"
+      - APP_REPO_URI="$AWS_ACCOUNT_ID.dkr.ecr.$AWS_DEFAULT_REGION.amazonaws.com/$APP_ECR_REPO"
+      - IMAGE_TAG="${CODEBUILD_RESOLVED_SOURCE_VERSION:-latest}"
+      - echo "App image $APP_REPO_URI:$IMAGE_TAG"
+  build:
+    commands:
+      - echo "Building app image..."
+      - docker build -t "$APP_REPO_URI:$IMAGE_TAG" .
+  post_build:
+    commands:
+      - echo "Pushing image to ECR..."
+      - docker push "$APP_REPO_URI:$IMAGE_TAG"
+      - docker tag "$APP_REPO_URI:$IMAGE_TAG" "$APP_REPO_URI:latest"
+      - docker push "$APP_REPO_URI:latest"
+      - printf '[{"name":"app","imageUri":"%s"}]' "$APP_REPO_URI:$IMAGE_TAG" > imagedefinitions.json
+      - cat imagedefinitions.json
+      - echo "Build artifacts ready for ECS deploy."
+
+artifacts:
+  files:
+    - imagedefinitions.json
