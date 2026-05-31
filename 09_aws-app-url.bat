@@ -3,7 +3,7 @@ setlocal
 chcp 65001 >nul
 cd /d "%~dp0"
 
-echo secapp ALB application URL
+echo secapp application URL (ECS task public IP)
 echo.
 
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0aws\scripts\show-app-url.ps1"

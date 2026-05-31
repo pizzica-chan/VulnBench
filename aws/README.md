@@ -1,13 +1,13 @@
 # secapp AWS デモ環境
 
-SecApp 向けの個人デモ用 AWS 構成です。**Application Load Balancer (ALB)** 経由でインターネットから HTTP アクセスできます。
+SecApp 向けの個人デモ用 AWS 構成です。ECS Fargate タスクの **パブリック IP** 経由でインターネットから HTTP アクセスできます（**ALB なし**でコスト抑制）。
 
 ## 概要
 
 | 項目 | 内容 |
 |------|------|
 | 用途 | デモ・検証（インターネット公開） |
-| 公開 URL | `http://{ALB の DNS 名}` |
+| 公開 URL | `http://{タスクのパブリック IP}:8080`（`09_aws-app-url.bat` で表示） |
 | アプリ | Spring Boot 3（JDK 21）、ポート 8080 |
 | DB | 同一 ECS タスク内の **MySQL 8 サイドカー**（永続化なし・再起動でリセット） |
 | 配備 | CodePipeline（Build → Test → **ECS ローリング**） |
@@ -16,12 +16,9 @@ SecApp 向けの個人デモ用 AWS 構成です。**Application Load Balancer (
 ## アーキテクチャ
 
 ```text
-インターネット ──► ALB (:80)
-                      │
-                      ▼
-              ECS Fargate タスク (1 台)
-                ├─ app (Spring Boot) :8080  ◄── ALB ターゲット
-                └─ mysql              :3306  ◄── localhost のみ（外部非公開）
+インターネット ──► ECS Fargate タスク (1 台) … パブリック IP :8080
+                      ├─ app (Spring Boot) :8080  ◄── 直接公開
+                      └─ mysql              :3306  ◄── localhost のみ（外部非公開）
 
 GitHub ──► CodePipeline
               ├─ Build  (CodeBuild)  … Docker ビルド → ECR プッシュ
@@ -29,8 +26,9 @@ GitHub ──► CodePipeline
               └─ Deploy (Amazon ECS) … imagedefinitions.json
 ```
 
-- ALB セキュリティグループ: インバウンド **TCP 80** を全世界に許可
-- ECS タスク SG: **ALB からの 8080 のみ**許可（MySQL は直接公開しない）
+- ECS タスク SG: インバウンド **TCP 8080** を全世界に許可（MySQL は直接公開しない）
+- **ALB は使いません**（停止中 `desired-count=0` でも ALB 固定費がかからない）
+- タスク再起動・デプロイのたびに **パブリック IP は変わります**（`09_aws-app-url.bat` で都度確認）
 - ルートの `buildspec.yml` は **この Pipeline では使いません**（別の CodeBuild プロジェクト用に残しています）。Pipeline は `aws/buildspec-build.yml` と `aws/buildspec-test.yml` を使用します。
 
 ## ディレクトリ構成
@@ -44,7 +42,7 @@ secure/
 ├── 06_aws-stack-delete.bat      スタック完全削除
 ├── 07_aws-mysql-shell.bat       ECS MySQL クライアント（ECS Exec）
 ├── 08_aws-mysql-portforward.bat ECS MySQL ポートフォワード (localhost:13306)
-├── 09_aws-app-url.bat           ALB アプリ URL 表示
+├── 09_aws-app-url.bat           タスクのパブリック IP / URL 表示
 aws/
 ├── README.md                    本ファイル
 ├── deploy.env.example           デプロイ用パラメータ雛形
@@ -68,7 +66,7 @@ aws/
 
 - AWS CLI v2（プロファイル・リージョン設定済み）
 - GitHub リポジトリと **AWS CodeConnections**（旧 CodeStar Connections）連携
-- 必要 IAM 権限の例: CloudFormation、ECS、ECR、ELB、CodePipeline、CodeBuild、IAM ロール作成、S3、Logs
+- 必要 IAM 権限の例: CloudFormation、ECS、ECR、EC2（ENI 参照）、CodePipeline、CodeBuild、IAM ロール作成、S3、Logs
 
 ## 初回セットアップ
 
@@ -137,31 +135,33 @@ Build → Test → Deploy が成功するまで待ちます。
 
 **ワンクリック（Windows）:** `04_aws-ecs-start.bat`
 
-ALB のターゲットが healthy になるまで 2〜3 分待ちます。
+タスクが RUNNING になるまで 2〜3 分待ちます。
 
 ### 6. アクセス
 
 **ワンクリック（Windows）:** `09_aws-app-url.bat`
 
-出力例: `http://secapp-demo-alb-1234567890.ap-northeast-1.elb.amazonaws.com`
+出力例: `http://54.XXX.XXX.XXX:8080/`
 
 ブラウザでその URL を開きます。デモ用アカウントは初回起動時にシードされます（ルート [README.md](../README.md) を参照）。
 
+**既存スタックを ALB 構成から移行する場合:** `02_aws-deploy.bat` を再実行してスタックを更新してください（ALB が削除され、ECS がパブリック IP 公開に切り替わります）。
+
 ## 課金について
 
-**アクセスがなくても、タスクが RUNNING なら Fargate + ALB 料金が発生します。**
+**Fargate はタスク RUNNING 中のみ課金**されます（ALB 固定費なし）。
 
 | 状態 | 主な課金 |
 |------|----------|
-| `desired-count=0` | ALB **約 $16/月** + Pipeline 等の少額 |
-| `desired-count=1` | 上記 + Fargate **約 $15–20/月** |
+| `desired-count=0` | Pipeline / S3 / ECR 等の少額のみ |
+| `desired-count=1` | Fargate **約 $15–20/月** + 上記 |
 | Pipeline / CodeBuild 実行時 | ビルド時間に応じた従量 |
 
 ### 使わないとき（課金抑制）
 
 **ワンクリック（Windows）:** `05_aws-ecs-stop.bat`（Fargate 停止） / `06_aws-stack-delete.bat`（完全削除）
 
-Fargate だけ止める場合は `05_aws-ecs-stop.bat`。ALB 料金も含めて全部消す場合は `06_aws-stack-delete.bat` です。
+Fargate だけ止める場合は `05_aws-ecs-stop.bat`。スタックごと消す場合は `06_aws-stack-delete.bat` です。
 
 ## セキュリティに関する注意
 
@@ -169,10 +169,11 @@ Fargate だけ止める場合は `05_aws-ecs-stop.bat`。ALB 料金も含めて�
 
 ## トラブルシューティング
 
-### ALB が 502 / 503
+### URL にアクセスできない
 
 - `desired-count` が 1 か、タスクが RUNNING か確認
-- ターゲットグループのヘルスチェックが unhealthy → CloudWatch Logs `/ecs/secapp-demo` を確認
+- `09_aws-app-url.bat` で **最新のパブリック IP** を確認（デプロイ・再起動で IP は変わる）
+- CloudWatch Logs `/ecs/secapp-demo` の `app` ストリームを確認
 - 初回は Pipeline 成功後に ECR に `latest` イメージがあるか確認
 
 ### アプリが起動しない（DB 接続）
@@ -210,7 +211,7 @@ DB は永続化なし。タスク再起動でデータは消え、Flyway マイ�
 | 項目 | ローカル | AWS デモ |
 |------|----------|----------|
 | DB | tmpfs（再起動でリセット） | タスク内 MySQL・再起動で消える |
-| アクセス | `http://localhost:8080` | `http://{ALB DNS}` |
+| アクセス | `http://localhost:8080` | `http://{タスクのパブリック IP}:8080` |
 | 配備 | `docker compose` | CodePipeline → ECS |
 
 ローカル開発は引き続き `docker-compose.yml` や `scripts/one-click-wsl-up.cmd` を使用してください。

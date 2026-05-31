@@ -13,7 +13,7 @@ echo.
 if %EXITCODE% neq 0 (
   echo [FAILED] exit code %EXITCODE%
 ) else (
-  echo [DONE] Fargate tasks stopped. ALB and Pipeline remain (still incur some cost).
+  echo [DONE] Fargate tasks stopped. Pipeline and other stack resources remain (small cost).
 )
 
 pause

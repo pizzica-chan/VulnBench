@@ -1,7 +1,7 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   secapp demo: ECS Fargate (MySQL sidecar + Spring Boot app),
-  public HTTP via ALB, CodePipeline (Build -> Test -> ECS rolling deploy).
+  public HTTP via task public IP (no ALB), CodePipeline (Build -> Test -> ECS rolling deploy).
 
 Parameters:
   ProjectName:
@@ -53,26 +53,12 @@ Resources:
   TaskSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: !Sub ${ProjectName} ECS task (allow app:8080 from ALB only)
+      GroupDescription: !Sub ${ProjectName} ECS task (allow app:8080 from internet)
       VpcId: !Ref DefaultVpcId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 8080
           ToPort: 8080
-          SourceSecurityGroupId: !Ref AlbSecurityGroup
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-
-  AlbSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: !Sub ${ProjectName} ALB (HTTP from internet)
-      VpcId: !Ref DefaultVpcId
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
           CidrIp: 0.0.0.0/0
       SecurityGroupEgress:
         - IpProtocol: -1
@@ -98,17 +84,6 @@ Resources:
       Tags:
         - Key: Name
           Value: !Sub ${ProjectName}-public-a
-
-  DefaultPublicSubnetB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      VpcId: !Ref DefaultVpcId
-      AvailabilityZone: !Select [1, !GetAZs ""]
-      CidrBlock: 10.254.2.0/24
-      MapPublicIpOnLaunch: true
-      Tags:
-        - Key: Name
-          Value: !Sub ${ProjectName}-public-b
 
   DefaultInternetGateway:
     Type: AWS::EC2::InternetGateway
@@ -141,52 +116,6 @@ Resources:
     Properties:
       SubnetId: !Ref DefaultPublicSubnet
       RouteTableId: !Ref PublicRouteTable
-
-  PublicSubnetBRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref DefaultPublicSubnetB
-      RouteTableId: !Ref PublicRouteTable
-
-  ApplicationLoadBalancer:
-    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
-    Properties:
-      Name: !Sub ${ProjectName}-alb
-      Scheme: internet-facing
-      Type: application
-      SecurityGroups:
-        - !Ref AlbSecurityGroup
-      Subnets:
-        - !Ref DefaultPublicSubnet
-        - !Ref DefaultPublicSubnetB
-
-  AlbTargetGroup:
-    Type: AWS::ElasticLoadBalancingV2::TargetGroup
-    Properties:
-      Name: !Sub ${ProjectName}-tg
-      Port: 8080
-      Protocol: HTTP
-      VpcId: !Ref DefaultVpcId
-      TargetType: ip
-      HealthCheckPath: /
-      HealthCheckIntervalSeconds: 30
-      HealthyThresholdCount: 2
-      UnhealthyThresholdCount: 5
-      Matcher:
-        HttpCode: 200-399
-      TargetGroupAttributes:
-        - Key: deregistration_delay.timeout_seconds
-          Value: "30"
-
-  AlbListener:
-    Type: AWS::ElasticLoadBalancingV2::Listener
-    Properties:
-      LoadBalancerArn: !Ref ApplicationLoadBalancer
-      Port: 80
-      Protocol: HTTP
-      DefaultActions:
-        - Type: forward
-          TargetGroupArn: !Ref AlbTargetGroup
 
   EcsTaskExecutionRole:
     Type: AWS::IAM::Role
@@ -293,7 +222,6 @@ Resources:
 
   EcsService:
     Type: AWS::ECS::Service
-    DependsOn: AlbListener
     Properties:
       ServiceName: !Sub ${ProjectName}-service
       Cluster: !Ref EcsCluster
@@ -301,11 +229,6 @@ Resources:
       DesiredCount: 0
       LaunchType: FARGATE
       EnableExecuteCommand: true
-      HealthCheckGracePeriodSeconds: 180
-      LoadBalancers:
-        - ContainerName: app
-          ContainerPort: 8080
-          TargetGroupArn: !Ref AlbTargetGroup
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: ENABLED
@@ -540,8 +463,9 @@ Outputs:
     Value: !Ref Pipeline
   AppEcrUri:
     Value: !Sub ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com/${AppEcrRepo}
-  ApplicationUrl:
-    Description: ALB URL (after desired-count=1 and successful Pipeline run)
-    Value: !Sub http://${ApplicationLoadBalancer.DNSName}
-  AlbDnsName:
-    Value: !GetAtt ApplicationLoadBalancer.DNSName
+  AppPort:
+    Description: Container port exposed on the task public IP
+    Value: "8080"
+  ApplicationUrlHint:
+    Description: Run 09_aws-app-url.bat after desired-count=1 (URL uses task public IP; changes on task restart)
+    Value: !Sub http://<task-public-ip>:8080/

@@ -35,7 +35,7 @@ try {
     $region = if ($env:AWS_REGION) { $env:AWS_REGION } else { "ap-northeast-1" }
     $stackName = if ($env:STACK_NAME) { $env:STACK_NAME } else { "secapp-demo" }
 
-    Write-Host "This will DELETE the entire AWS stack (ECS, ALB, Pipeline, ECR, etc.)."
+    Write-Host "This will DELETE the entire AWS stack (ECS, Pipeline, ECR, etc.)."
     Write-Host "Stack : $stackName"
     Write-Host "Region: $region"
     Write-Host ""

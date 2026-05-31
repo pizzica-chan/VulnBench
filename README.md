@@ -20,7 +20,7 @@
 - **自動起動スクリプト:** `scripts/` 以下（後述）。**ワンクリック系（`one-click-wsl-*` / `docker-desktop-*`）は Windows 専用**です。**macOS / Linux** ネイティブでは、`scripts/wsl-up.sh` 相当を使うか、リポジトリ直下で `docker compose up --build -d --force-recreate`（停止は `docker compose down`）を実行してください。**ソース変更を Docker へ反映する**ときは `./scripts/wsl-restart.sh` / Windows の `one-click-wsl-restart`（`docker compose up -d --build --force-recreate app`）を使う。コンテナだけ止めて同じイメージで立ち上げ直すだけなら `docker compose restart`。
 - **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
 - **AWS CodeBuild:** クラウドでビルドする場合は [AWS（CodeBuild）](#awscodebuild) を参照（単体 CodeBuild 用。ローカルの Docker 起動とは別手順）。
-- **AWS デモ公開:** インターネットから ALB 経由で試す場合は [AWS（デモ公開 / CodePipeline）](#awsデモ公開--codepipeline) を参照（CloudFormation + ワンクリック bat。詳細は [`aws/README.md`](aws/README.md)）。
+- **AWS デモ公開:** インターネットから ECS タスクのパブリック IP 経由で試す場合は [AWS（デモ公開 / CodePipeline）](#awsデモ公開--codepipeline) を参照（CloudFormation + ワンクリック bat。ALB なし。詳細は [`aws/README.md`](aws/README.md)）。
 - **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。**`8080` を他プロセスが使用中のときも競合**するため、必要なら `app.ports` を `"18080:8080"` のように変更し、ブラウザ側も `http://localhost:18080` に切り替えてください。
 
 ## 起動手順（自動化）
@@ -178,11 +178,11 @@ Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`d
 
 ## AWS（デモ公開 / CodePipeline）
 
-**個人デモ向け**に、CloudFormation で ALB + ECS Fargate + CodePipeline を一括作成し、インターネットから HTTP でアクセスできる構成です。
+**個人デモ向け**に、CloudFormation で ECS Fargate + CodePipeline を一括作成し、タスクの **パブリック IP** から HTTP でアクセスできる構成です（**ALB なし**でコスト抑制）。
 
 | 項目 | 内容 |
 |------|------|
-| 公開 URL | `http://{ALB の DNS 名}`（`09_aws-app-url.bat` で表示） |
+| 公開 URL | `http://{タスクのパブリック IP}:8080`（`09_aws-app-url.bat` で表示。再起動で IP は変わる） |
 | 配備 | CodePipeline（Build → Test → ECS ローリング） |
 | 初期タスク数 | `0`（`04_aws-ecs-start.bat` で手動起動） |
 | ビルド定義 | **`aws/buildspec-build.yml`** / **`aws/buildspec-test.yml`** |
@@ -200,7 +200,7 @@ Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`d
 | `06_aws-stack-delete.bat` | スタック完全削除 |
 | `07_aws-mysql-shell.bat` | ECS 上の MySQL クライアント |
 | `08_aws-mysql-portforward.bat` | MySQL を localhost:13306 に転送 |
-| `09_aws-app-url.bat` | ALB のアプリ URL 表示 |
+| `09_aws-app-url.bat` | タスクのパブリック IP / URL 表示 |
 
 **注意:** 他プロジェクト（例: gourmet-map）の bat と名前が似ています。**必ず本リポジトリ（VulnBench / secure）直下の bat を実行**してください。
 
@@ -215,6 +215,8 @@ Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`d
 7. **`09_aws-app-url.bat`** … URL 確認
 
 手順の全文・課金・トラブルシュートは **[`aws/README.md`](aws/README.md)** を参照してください。
+
+教材ページ（`/docs`）や [学習シナリオ](#学習シナリオ) の URL は `localhost:8080` 表記です。**AWS デモ**ではホスト部分を `09_aws-app-url.bat` で表示される **`{パブリック IP}:8080`** に読み替えてください。
 
 ### ソース変更を AWS に反映するとき
 
@@ -376,7 +378,7 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 ## ディレクトリ構成（重要部分）
 
 ```
-02_aws-deploy.bat … 09_aws-app-url.bat   AWS デモ公開用ワンクリック（CloudFormation / Pipeline / ECS）
+02_aws-deploy.bat … 09_aws-app-url.bat   AWS デモ公開用ワンクリック（ECS パブリック IP、ALB なし）
 scripts/               WSL / Windows / ワンクリック用の起動・停止スクリプト
   one-click-wsl-up.cmd / one-click-wsl-up.ps1   Windows→WSL ワンクリック起動
   one-click-wsl-down.cmd / one-click-wsl-down.ps1  同上の停止
@@ -428,7 +430,7 @@ src/main/resources/
 - これは学習用アプリです。本番運用には絶対に使わないでください。
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
 - **ローカル Docker** ではインターネットに公開しないこと。ローカル環境だけで動かしてください。
-- **AWS デモ公開**（[`aws/README.md`](aws/README.md)）は任意の検証用です。HTTP のみで脆弱版が外部から触れるため、デモ目的・自己責任に限定してください。
+- **AWS デモ公開**（[`aws/README.md`](aws/README.md)）は任意の検証用です。タスクのパブリック IP `:8080` へ HTTP で公開され、IP は再起動・デプロイのたびに変わります。脆弱版が外部から触れるため、デモ目的・自己責任に限定してください。
 - `docker-compose.yml` / `application.yml` には MySQL の **学習用クレデンシャル**が平文で書かれています（**アプリ接続: `secapp` / `secapp`**、**MySQL root: `root` / `rootpass`**）。教材限定の前提で、**他環境への流用は避けて**ください。
 - JDBC URL の `useSSL=false` と `allowPublicKeyRetrieval=true` は、ローカル教材環境の接続優先設定です。本番では TLS を有効にし、接続オプションを環境ポリシーに合わせて見直してください。
 - `logging.level.org.springframework.jdbc.core=DEBUG` は教材として SQL を追いやすくするためです。本番では機微情報がログに残るリスクがあるため、通常は INFO 以上へ引き上げます。

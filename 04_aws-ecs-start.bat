@@ -13,7 +13,7 @@ echo.
 if %EXITCODE% neq 0 (
   echo [FAILED] exit code %EXITCODE%
 ) else (
-  echo [DONE] Tasks will start in 2-3 minutes. Run 09_aws-app-url.bat for the ALB URL.
+  echo [DONE] Tasks will start in 2-3 minutes. Run 09_aws-app-url.bat for the public IP URL.
 )
 
 pause
