@@ -74,6 +74,8 @@ userDao.create(form.getUsername(), hashed, form.getEmail(), "USER");</pre>
         <li>BCrypt / Argon2 / scrypt のような<strong>適応的</strong>ハッシュを使う（単純な MD5/SHA は不可）</li>
         <li>ソルトはアルゴリズムが自動で付与する（BCrypt はハッシュ文字列に含まれる）</li>
         <li>画面・ログ・エラーメッセージにパスワードを出さない</li>
+        <li>BCrypt は入力の先頭 <strong>72 バイト</strong>までしか使わない。対策版は、パスワードを UTF-8 で 72 バイト以内に制限している（日本語は 1 文字 3 バイトなので 24 文字まで。<code>com.example.secapp.common.validation.MaxUtf8Bytes</code>）</li>
+        <li>ログインの失敗回数を制限し、総当たりを遅らせる。対策版は、同じユーザー名で 5 回続けて失敗すると 5 分間ロックする（<code>com.example.secapp.secure.auth.LoginAttemptService</code>）。存在しないユーザー名も同じように数えるので、ロックの有無からユーザー名の存在は分からない。ただし、他人のユーザー名をわざと失敗させてロックさせる嫌がらせはできるため、実務では IP アドレス単位の制限や CAPTCHA と組み合わせる</li>
         <li>多要素認証 (TOTP など) を併用するとさらに強い</li>
     </ul>
 </main>

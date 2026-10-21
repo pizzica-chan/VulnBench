@@ -8,7 +8,7 @@ SecApp 向けの個人デモ用 AWS 構成です。ECS Fargate タスクの **�
 |------|------|
 | 用途 | デモ・検証（インターネット公開） |
 | 公開 URL | `http://{タスクのパブリック IP}:8080`（`09_aws-app-url.bat` で表示） |
-| アプリ | Spring Boot 3（JDK 21）、ポート 8080 |
+| アプリ | Spring Boot 4（JDK 21）、ポート 8080 |
 | DB | 同一 ECS タスク内の **MySQL 8 サイドカー**（永続化なし・再起動でリセット） |
 | 配備 | CodePipeline（Build → Test → **ECS ローリング**） |
 | 初期タスク数 | `DesiredCount: 0`（手動で 1 にしたときだけ Fargate 課金） |

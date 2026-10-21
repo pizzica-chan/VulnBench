@@ -1,7 +1,7 @@
 package com.example.secapp.vulnerable.dao;
 
 import com.example.secapp.common.entity.Comment;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -15,10 +15,18 @@ import java.util.Optional;
  * クエリ構築が文字列連結ベースの教材実装である。
  */
 @Repository
-@RequiredArgsConstructor
 public class VulnerableCommentDao {
 
     private final JdbcTemplate jdbc;
+
+    /**
+     * 脆弱版専用の {@link JdbcTemplate} を受け取って作る。
+     *
+     * @param jdbc {@code vuln_*} テーブルにしか権限のない DB ユーザーの接続（{@link com.example.secapp.config.JdbcConfig}）
+     */
+    public VulnerableCommentDao(@Qualifier("vulnerableJdbcTemplate") JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
     private static final RowMapper<Comment> ROW_MAPPER = (rs, n) -> Comment.builder()
             .id(rs.getLong("id"))

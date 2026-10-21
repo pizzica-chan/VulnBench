@@ -9,13 +9,13 @@ import lombok.Data;
  * メールアドレス更新フォームをバインドする DTO。
  * <p>
  * 対策版（{@code POST /secure/users/{id}/update-email}）で使用し、
- * Bean Validation により形式・長さを検査する。
+ * Bean Validation により形式・長さを検査する。長さの上限は DB の {@code email} 列（{@code VARCHAR(128)}）に合わせる。
  */
 @Data
 public class EmailForm {
     @NotBlank
     @Email
-    @Size(max = 254)
+    @Size(max = 128)
     private String email;
 
     /**

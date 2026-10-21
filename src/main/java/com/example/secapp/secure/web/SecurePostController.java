@@ -129,6 +129,7 @@ public class SecurePostController {
                           BindingResult br,
                           @AuthenticationPrincipal SecurePrincipal me,
                           RedirectAttributes ra) {
+        if (postDao.findById(id).isEmpty()) return "redirect:/secure/posts";
         if (br.hasErrors()) {
             ra.addFlashAttribute("errorMessage", "コメントを入力してください。");
             return "redirect:/secure/posts/" + id;

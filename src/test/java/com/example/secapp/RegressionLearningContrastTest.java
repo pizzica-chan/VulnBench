@@ -6,12 +6,16 @@ import com.example.secapp.secure.web.SecurePostController;
 import com.example.secapp.vulnerable.auth.LegacyCookieAuth;
 import com.example.secapp.vulnerable.dao.VulnerableCommentDao;
 import com.example.secapp.vulnerable.dao.VulnerablePostDao;
+import com.example.secapp.vulnerable.dao.VulnerableUserDao;
 import com.example.secapp.vulnerable.web.VulnerablePostController;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+
+import java.lang.reflect.Constructor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -103,5 +107,23 @@ class RegressionLearningContrastTest {
 
         secureMvc.perform(get("/secure/posts/1/delete"))
                 .andExpect(status().isMethodNotAllowed());
+    }
+
+    /**
+     * 成功時の担保: 脆弱版の DAO がすべて、{@code vuln_*} テーブルだけに権限のある接続
+     * （{@code vulnerableJdbcTemplate}）を受け取るよう指定されていること。
+     * <p>
+     * 指定が外れると、Spring は {@code @Primary} の共通接続を渡す。その場合もアプリは普通に動くため、
+     * 脆弱版の SQL インジェクションから対策版の {@code sec_*} テーブルが読めるようになっても気づけない。
+     */
+    @Test
+    void vulnerableDaosUseRestrictedJdbcTemplate() {
+        for (Class<?> dao : new Class<?>[]{VulnerableUserDao.class, VulnerablePostDao.class, VulnerableCommentDao.class}) {
+            Constructor<?>[] constructors = dao.getConstructors();
+            assertThat(constructors).as(dao.getSimpleName()).hasSize(1);
+            Qualifier qualifier = constructors[0].getParameters()[0].getAnnotation(Qualifier.class);
+            assertThat(qualifier).as(dao.getSimpleName()).isNotNull();
+            assertThat(qualifier.value()).as(dao.getSimpleName()).isEqualTo("vulnerableJdbcTemplate");
+        }
     }
 }

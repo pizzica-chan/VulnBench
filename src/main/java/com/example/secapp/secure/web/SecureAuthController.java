@@ -5,6 +5,7 @@ import com.example.secapp.common.dto.RegisterForm;
 import com.example.secapp.secure.dao.SecureUserDao;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -33,15 +34,18 @@ public class SecureAuthController {
      *
      * @param error   認証失敗時に付与されるフラグ
      * @param logout  ログアウト直後に付与されるフラグ
+     * @param locked  試行回数の制限でロック中のときに付与されるフラグ
      * @param model   ビューモデル
      * @return ビュー {@code secure/login}
      */
     @GetMapping("/login")
     public String loginForm(@RequestParam(required = false) String error,
                             @RequestParam(required = false) String logout,
+                            @RequestParam(required = false) String locked,
                             Model model) {
         model.addAttribute("loginForm", new LoginForm());
         if (error != null) model.addAttribute("errorMessage", "ユーザー名またはパスワードが違います。");
+        if (locked != null) model.addAttribute("errorMessage", "ログインに続けて失敗したため、このユーザー名は 5 分間ログインできません。時間をおいて再度お試しください。");
         if (logout != null) model.addAttribute("flashMessage", "ログアウトしました。");
         return "secure/login";
     }
@@ -76,7 +80,13 @@ public class SecureAuthController {
             return "secure/register";
         }
         String hashed = passwordEncoder.encode(form.getPassword());
-        userDao.create(form.getUsername(), hashed, form.getEmail(), "USER");
+        try {
+            userDao.create(form.getUsername(), hashed, form.getEmail(), "USER");
+        } catch (DuplicateKeyException e) {
+            // 上の存在チェックと INSERT の間に同名の登録が割り込んだ場合。最終的な判定は DB の UNIQUE 制約に任せる。
+            model.addAttribute("errorMessage", "そのユーザー名は既に使われています。");
+            return "secure/register";
+        }
         model.addAttribute("flashMessage", "登録しました。ログインしてください。");
         model.addAttribute("loginForm", new LoginForm());
         return "secure/login";

@@ -1,7 +1,9 @@
 package com.example.secapp.config;
 
+import com.example.secapp.secure.auth.LoginAttemptService;
 import com.example.secapp.secure.auth.SecurePrincipal;
 import com.example.secapp.secure.auth.SecureUserDetailsService;
+import com.example.secapp.secure.auth.ThrottlingAuthenticationProvider;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +12,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.LockedException;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -37,11 +42,13 @@ import org.springframework.security.web.header.writers.XXssProtectionHeaderWrite
 public class SecurityConfig {
 
     private final SecureUserDetailsService secureUserDetailsService;
+    private final LoginAttemptService loginAttemptService;
 
     /**
      * {@code /secure/**} にだけ適用するセキュアな {@link SecurityFilterChain} を構築して返す。
      * <p>
      * フォームログイン、CSRF 有効、セッション ID 再生成、BCrypt による DaoAuthentication を行う。
+     * ログインは続けて失敗するとユーザー名ごとに一定時間ロックする（{@link LoginAttemptService}）。
      * ユーザープロフィール {@code GET /secure/users/{id}} は教材上閲覧可能にする一方、
      * <strong>ユーザー一覧 {@code GET /secure/users} は ADMIN のみ</strong>とする。
      * 投稿一覧／詳細の {@code GET} は匿名可。新規投稿・編集・{@code POST} 系は認証必須とする。
@@ -80,7 +87,10 @@ public class SecurityConfig {
                         .usernameParameter("username")
                         .passwordParameter("password")
                         .defaultSuccessUrl("/secure/posts", false)
-                        .failureUrl("/secure/login?error")
+                        // ロック中は ?locked、それ以外の失敗は ?error でログイン画面に戻す
+                        .failureHandler((request, response, exception) -> response.sendRedirect(
+                                request.getContextPath()
+                                        + (exception instanceof LockedException ? "/secure/login?locked" : "/secure/login?error")))
                         .permitAll())
                 .logout(logout -> logout
                         .logoutUrl("/secure/logout")
@@ -100,7 +110,7 @@ public class SecurityConfig {
                         .sessionFixation(sf -> sf.changeSessionId()))
                 .exceptionHandling(ex -> ex
                         .accessDeniedHandler(auditingAccessDeniedHandler()))
-                .authenticationProvider(daoAuthenticationProvider());
+                .authenticationManager(secureAuthenticationManager());
 
         return http.build();
     }
@@ -169,15 +179,18 @@ public class SecurityConfig {
     }
 
     /**
-     * {@link SecureUserDetailsService} と {@link PasswordEncoder} を束ねた認証プロバイダを提供する。
+     * 対策版のログインに使う {@link AuthenticationManager} を組み立てる。
+     * <p>
+     * BCrypt で照合する {@link DaoAuthenticationProvider} を {@link ThrottlingAuthenticationProvider} で包み、
+     * 試行回数の制限をかける。Bean にはせず、このプロバイダだけを持つ {@link ProviderManager} を
+     * {@code /secure/**} のチェーンに直接渡す。Bean にすると Spring Security が別の認証経路（親の
+     * {@code AuthenticationManager}）を自動で組み、失敗を二重に数えたり制限を経由しない照合が起きたりする。
      *
-     * @return 構成済み {@link DaoAuthenticationProvider}
+     * @return 対策版用の {@link AuthenticationManager}
      */
-    @Bean
-    public DaoAuthenticationProvider daoAuthenticationProvider() {
-        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
-        provider.setUserDetailsService(secureUserDetailsService);
-        provider.setPasswordEncoder(passwordEncoder());
-        return provider;
+    private AuthenticationManager secureAuthenticationManager() {
+        DaoAuthenticationProvider dao = new DaoAuthenticationProvider(secureUserDetailsService);
+        dao.setPasswordEncoder(passwordEncoder());
+        return new ProviderManager(new ThrottlingAuthenticationProvider(dao, loginAttemptService));
     }
 }

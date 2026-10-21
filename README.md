@@ -21,7 +21,7 @@
 - **ローカル開発:** JDK 21、Maven 3.9+、Docker（MySQL コンテナのみ）。Docker でビルド・起動する場合はホスト側に JDK/Maven は不要です。
 - **AWS CodeBuild:** クラウドでビルドする場合は [AWS（CodeBuild）](#awscodebuild) を参照（単体 CodeBuild 用。ローカルの Docker 起動とは別手順）。
 - **AWS デモ公開:** インターネットから ECS タスクのパブリック IP 経由で試す場合は [AWS（デモ公開 / CodePipeline）](#awsデモ公開--codepipeline) を参照（CloudFormation + ワンクリック bat。ALB なし。詳細は [`aws/README.md`](aws/README.md)）。
-- **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストにバインドします。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"13306:3306"` のように変更してください。**`8080` を他プロセスが使用中のときも競合**するため、必要なら `app.ports` を `"18080:8080"` のように変更し、ブラウザ側も `http://localhost:18080` に切り替えてください。
+- **ホストポート:** アプリは **`8080`**、MySQL は **`3306`** をホストの **`127.0.0.1`** にバインドします（同じ LAN の他の端末からは接続できません）。**既存のローカル MySQL が `3306` で動いている場合は競合**するので、停止するか `docker-compose.yml` の `ports` を `"127.0.0.1:13306:3306"` のように変更してください。**`8080` を他プロセスが使用中のときも競合**するため、必要なら `app.ports` を `"127.0.0.1:18080:8080"` のように変更し、ブラウザ側も `http://localhost:18080` に切り替えてください。
 
 ## 起動手順（自動化）
 
@@ -172,6 +172,7 @@ mvn spring-boot:run
 ```
 
 JDK 21 と Maven が必要です。`application.yml` は `localhost:3306` を参照します。
+この起動方法では、脆弱版も対策版と同じ DB ユーザー `secapp` で接続します（起動ログに警告が出ます）。Docker 構成と同じく、脆弱版を `vuln_*` テーブルだけに権限のある `secapp_vuln` で接続させたい場合は、環境変数 `SECAPP_VULNERABLE_DATASOURCE_USERNAME=secapp_vuln` と `SECAPP_VULNERABLE_DATASOURCE_PASSWORD=secapp_vuln` を設定してから起動してください（`secapp_vuln` は `docker compose up -d mysql` の初回起動時に [`docker/mysql-init/01-vulnerable-user.sql`](docker/mysql-init/01-vulnerable-user.sql) が作ります）。
 Docker でアプリも起動する場合は `SPRING_PROFILES_ACTIVE=docker`（`docker-compose.yml`）により、`application-docker.yml` の `mysql:3306` を参照します。
 
 ブラウザで `http://localhost:8080` を開いてください。
@@ -391,9 +392,11 @@ aws/                   AWS デモ公開（CloudFormation, Pipeline 用 buildspec
 buildspec.yml          単体 CodeBuild 用ビルド定義（Pipeline とは別）
 Dockerfile
 docker-compose.yml
+docker/mysql-init/     MySQL 初回起動時の SQL（脆弱版専用の DB ユーザー secapp_vuln を作る）
 src/main/java/com/example/secapp/
   common/        共通エンティティ・DTO（両版で共有）
-  config/        SecurityConfig（/secure/** 向け厳格チェーン + それ以外向け寛容チェーン）, DataSeeder
+  config/        SecurityConfig（/secure/** 向け厳格チェーン + それ以外向け寛容チェーン）, DataSeeder,
+                 JdbcConfig（脆弱版だけ vuln_* 限定の DB ユーザーで接続）
   vulnerable/    web / service / dao / auth   ←脆弱版の本体
   secure/        web / service / dao / auth   ←対策版の本体（vulnerable と鏡像）
   docs/          ランディング・解説ページ用 Controller
@@ -429,7 +432,7 @@ src/main/resources/
 
 - これは学習用アプリです。本番運用には絶対に使わないでください。
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
-- **ローカル Docker** ではインターネットに公開しないこと。ローカル環境だけで動かしてください。
+- **ローカル Docker** ではインターネットに公開しないこと。ローカル環境だけで動かしてください。`docker-compose.yml` はポートを `127.0.0.1` だけにバインドしています。`ports` から `127.0.0.1:` を外すと、同じ LAN の他の端末から脆弱版アプリや MySQL に接続できるようになります。
 - **AWS デモ公開**（[`aws/README.md`](aws/README.md)）は任意の検証用です。タスクのパブリック IP `:8080` へ HTTP で公開され、IP は再起動・デプロイのたびに変わります。脆弱版が外部から触れるため、デモ目的・自己責任に限定してください。
 - `docker-compose.yml` / `application.yml` には MySQL の **学習用クレデンシャル**が平文で書かれています（**アプリ接続: `secapp` / `secapp`**、**MySQL root: `root` / `rootpass`**）。教材限定の前提で、**他環境への流用は避けて**ください。
 - JDBC URL の `useSSL=false` と `allowPublicKeyRetrieval=true` は、ローカル教材環境の接続優先設定です。本番では TLS を有効にし、接続オプションを環境ポリシーに合わせて見直してください。
