@@ -185,14 +185,14 @@ Fargate だけ止める場合は `05_aws-ecs-stop.bat`。スタックごと消�
 
 前提: タスク RUNNING（`04_aws-ecs-start.bat`）、[Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) インストール済み。
 
-**方法 A — ECS Exec（対話）:** `07_aws-mysql-shell.bat`
+**方法 A（ECS Exec で対話）:** `07_aws-mysql-shell.bat`
 
-bat 実行で `secapp` に MySQL クライアントが直接開きます。終了は `exit` または `\q`。
+bat を実行すると、DB `secapp` に接続した MySQL クライアントが開きます。終了は `exit` または `\q`。
 
-**方法 B — ローカル mysql クライアント:** `08_aws-mysql-portforward.bat`
+**方法 B（ローカルの mysql クライアント）:** `08_aws-mysql-portforward.bat`
 
-1. bat を起動したまま（`Ctrl+C` で停止）
-2. 別ターミナル:
+1. bat を起動したままにする（`Ctrl+C` で停止）
+2. 別のターミナルで次を実行する
 
 ```powershell
 mysql -h 127.0.0.1 -P 13306 -uroot -p secapp

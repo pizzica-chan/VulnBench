@@ -56,7 +56,7 @@
 - **WSL:** リポジトリ直下で `./scripts/wsl-restart.sh`
 - **手動:** リポジトリ直下で `docker compose up -d --build --force-recreate app`
 
-**スタック全体を作り直し**て DB を初期状態にしたい場合は **`wsl-up.sh` / `one-click-wsl-up`**（`--force-recreate` 全サービス）を使います。コンテナのみの軽い再起動だけなら `docker compose restart`。
+**スタック全体を作り直し**て DB を初期状態にしたい場合は **`wsl-up.sh` / `one-click-wsl-up`**（`--force-recreate` 全サービス）を使います。コンテナを再起動するだけなら `docker compose restart`。
 
 | 環境 | 起動 | 停止 | ソース反映（app 再ビルド） |
 |------|------|------|---------------------------|
@@ -75,7 +75,7 @@ chmod +x scripts/wsl-up.sh scripts/wsl-down.sh scripts/wsl-restart.sh
 #### スクリプト・文字コードの注記（Windows / WSL）
 
 - **`*.sh`（`wsl-up.sh` 等）** … WSL / Linux では **LF 改行**が必要です。CRLF のままだと `bash\r` のようなエラーになります。本リポジトリでは [`.gitattributes`](.gitattributes) で `*.sh text eol=lf` を指定し、Git チェックアウト時に LF になるようにしています。手で編集した場合はエディタの改行を LF にしてください。
-- **`scripts/*.ps1`** … **Windows PowerShell 5.1** が、BOM なし UTF-8 の日本語を誤読してパースエラーになることがあるため、**UTF-8（BOM 付き）**で保存しています。編集後にスクリプトが動かなくなったら、保存形式が BOM 付き UTF-8 か確認してください。
+- **`scripts/*.ps1`** … **Windows PowerShell 5.1** が、BOM なし UTF-8 の日本語を誤読してパースエラーになることがあるため、**UTF-8（BOM 付き）** で保存しています。編集後にスクリプトが動かなくなったら、保存形式が BOM 付き UTF-8 か確認してください。
 - **コンソールの文字化け** … `one-click-wsl-up.cmd` など実行時、コマンドプロンプトの既定コードページのため日本語メッセージが化けることがあります。**処理自体は成功している**ことがあります。見やすくしたい場合は **Windows Terminal** を使う、`chcp 65001` で UTF-8 にする、などで表示を整えられます。
 
 #### Docker での MySQL データ（教材用のリセット）
@@ -84,14 +84,14 @@ chmod +x scripts/wsl-up.sh scripts/wsl-down.sh scripts/wsl-restart.sh
 - **`wsl-up.sh` と `docker-desktop-up.ps1`** は `docker compose up --build -d --force-recreate` を実行するため、これらのスクリプトで起動するたびに **クリーンな DB** になります。
 - 手動で `docker compose up -d` だけを使い、**すでに動いている MySQL コンテナを止めずに**再実行した場合は、そのコンテナ内のデータはそのままです（MySQL を止める・作り直すとリセットされます）。
 - `DataSeeder` は **`sec_users` が空のときだけ**投入を実行します。DB を残したままアプリのみ再起動した場合、2回目以降は投入がスキップされます。
-- 古い構成の **名前付きボリューム `secapp-mysql-data`** が環境に残っているなら、**`docker volume rm secapp-mysql-data` で削除推奨**です（現在の compose では定義しておらず、放置するとディスクを食うだけ＋古い学習データが残って混乱の原因になります）。`docker volume ls | findstr secapp` などで確認できます。
+- 古い構成の **名前付きボリューム `secapp-mysql-data`** が環境に残っているなら、**`docker volume rm secapp-mysql-data` で削除することをおすすめします**（現在の compose では定義していません。放置するとディスクの容量を使い続けるうえ、古い学習データが残って混乱の原因になります）。`docker volume ls | findstr secapp` などで確認できます。
 
 ### WSL で起動する
 
 前提:
 
 1. Windows に **Docker Desktop** を入れ、**Settings → Resources → WSL integration** で使用中のディストリビューションをオンにする。
-2. WSL 内で `docker compose version` が通ること（Docker CLI は Windows の Docker Desktop が提供）。
+2. WSL 内で `docker compose version` を実行できること（Docker CLI は Windows の Docker Desktop が提供）。
 
 リポジトリが Windows ドライブ上にある場合の例:
 
@@ -111,7 +111,7 @@ docker compose logs -f app
 
 停止は `./scripts/wsl-down.sh` または `docker compose down`（リポジトリ直下で）。
 
-ソースを直したあと Docker 上のアプリに反映したいときは `./scripts/wsl-restart.sh`（`docker compose up -d --build --force-recreate app`）。WSL 統合を使わず Windows 側だけで compose している場合は同じディレクトリで同じコマンドを実行する。コンテナだけの再起動だけなら `docker compose restart`。
+ソースを直したあと Docker 上のアプリに反映したいときは `./scripts/wsl-restart.sh`（`docker compose up -d --build --force-recreate app`）。WSL 統合を使わず Windows 側だけで compose している場合は同じディレクトリで同じコマンドを実行する。コンテナを再起動するだけなら `docker compose restart`。
 
 ### Windows（Docker Desktop）で起動する
 
@@ -254,7 +254,7 @@ CodeBuild では `commands` の各ブロックが **別プロセス** で動く�
 
 ### 初回だけやること（チェックリスト）
 
-ビルドを走らせる**前**に、次を揃えてください。
+ビルドを実行する**前**に、次を揃えてください。
 
 | # | やること | メモ |
 |---|----------|------|
@@ -322,7 +322,7 @@ Maven の依存は `.m2/repository` にキャッシュします。テストは D
 | **POST_BUILD** | **ECR リポジトリが無い** | `aws ecr create-repository` で作成（名前は `IMAGE_REPO_NAME` と一致） |
 | **POST_BUILD** | push 権限不足 | サービスロールに ECR push 権限を追加 |
 
-補足: **ECR リポジトリが無い**と、多くの場合 **POST_BUILD の `docker push` で失敗**します。PRE_BUILD の「レジストリへのログイン」は通っても、push の段階で `RepositoryNotFoundException` などになります。PRE_BUILD で落ちる場合は、上表のリージョン・特権モード・IAM を先に確認してください。
+補足: **ECR リポジトリが無い**と、多くの場合 **POST_BUILD の `docker push` で失敗**します。PRE_BUILD の「レジストリへのログイン」は成功しても、push の段階で `RepositoryNotFoundException` などになります。PRE_BUILD で失敗する場合は、上表のリージョン・特権モード・IAM を先に確認してください。
 
 ### Docker を使わないビルドだけ試す場合
 
@@ -362,15 +362,15 @@ SECURE 側は同じパスワードを BCrypt ハッシュ化して `sec_users` �
 /vulnerable/posts/new      投稿作成
 /vulnerable/posts/{id}     詳細 + コメント（?editCommentId=… でインライン編集）
 /vulnerable/posts/{id}/edit                      投稿編集フォーム
-/vulnerable/posts/{id}/update                    投稿更新（POST／GET ともに通る教材実装）
-/vulnerable/posts/{id}/delete                    投稿削除（GET でも通る）
+/vulnerable/posts/{id}/update                    投稿更新（POST／GET どちらも受け付ける教材実装）
+/vulnerable/posts/{id}/delete                    投稿削除（GET でも受け付ける）
 /vulnerable/posts/{postId}/comments              コメント追加（POST）
 /vulnerable/posts/{postId}/comments/{commentId}/update   コメント更新（POST）
-/vulnerable/posts/{postId}/comments/{commentId}/delete   コメント削除（GET でも通る）
+/vulnerable/posts/{postId}/comments/{commentId}/delete   コメント削除（GET でも受け付ける）
 /vulnerable/users          ユーザー一覧（ADMIN にだけヘッダ2段目に表示／サーバは無認可で URL 直打ち可）
 /vulnerable/users/{id}     プロフィール
-/vulnerable/users/{id}/update-email              メール更新（GET / POST どちらも通る）
-/vulnerable/users/{id}/change-password           パスワード変更（POST、現パス未照合）
+/vulnerable/users/{id}/update-email              メール更新（GET / POST どちらも受け付ける）
+/vulnerable/users/{id}/change-password           パスワード変更（POST、現在のパスワードを照合しない）
 
 /secure/...                上記とほぼ同じパス構成。状態変更系は POST + CSRF（ログアウトも POST）。
                             一覧 /secure/users は ADMIN のみ、コメント・投稿削除も POST 限定。
@@ -422,7 +422,7 @@ src/main/resources/
 | 2 | **蓄積型 XSS** | `alice` / `wonderland` でログイン → 新規投稿の本文に `<script>alert(document.cookie)</script>`。**攻撃成功の目安:** 一覧や詳細でスクリプトが実行されアラートが出る。 |
 | 3 | **反射型 XSS** | `/vulnerable/posts` の検索に `<img src=x onerror=alert(1)>` を入力して検索。**攻撃成功の目安:** 一覧表示時に `alert(1)` が動く。 |
 | 4 | **CSRF / GET で状態変更** | ログイン後、**`/docs/csrf`** の手順どおり試す（GET 削除の複数パターン、別投稿 ID の GET 更新など）。単純な例だけなら新しいタブのアドレスバーに `/vulnerable/posts/1/delete` のような GET 削除 URL を入力してもよい。**攻撃成功の目安:** 意図せず状態が書き換わる。 |
-| 5 | **パスワード平文** | `admin` / `admin123` でログインし、ユーザー一覧またはプロフィールで平文のまま読めることを確認（画面表示は教材用の可視化）。**攻撃成功の目安:** 保存パスワードがそのまま分かる。対策版は BCrypt と画面からの除去。 |
+| 5 | **パスワード平文** | `admin` / `admin123` でログインし、ユーザー一覧またはプロフィールで平文のまま読めることを確認（画面表示は教材用の可視化）。**攻撃成功の目安:** 保存パスワードがそのまま分かる。対策版は BCrypt でハッシュ化し、画面にも表示しない。 |
 | 6 | **セッション改ざん** | `bob` / `builder` でログイン → DevTools の Cookie で `vuln_uid` を `1` に変更 → 一覧を再読み込み。**攻撃成功の目安:** 表示が `admin` に切り替わる。 |
 | 7 | **IDOR / 認可不備** | **`/docs/idor`** に手順をまとめている（例: admin のプロフィールを一般ユーザ権限でメール変更、未ログインでユーザー一覧など）。**一例（メール改ざん）:** `bob` でログインしたまま `http://localhost:8080/vulnerable/users/1/update-email?email=hacked@example.com` にアクセス。**攻撃成功の目安:** 権限や本人性のない操作が成立する。 |
 
@@ -433,7 +433,7 @@ src/main/resources/
 - これは学習用アプリです。本番運用には絶対に使わないでください。
 - `/vulnerable/**` の挙動は教育目的で**故意に脆弱**にしてあります。
 - **ローカル Docker** ではインターネットに公開しないこと。ローカル環境だけで動かしてください。`docker-compose.yml` はポートを `127.0.0.1` だけにバインドしています。`ports` から `127.0.0.1:` を外すと、同じ LAN の他の端末から脆弱版アプリや MySQL に接続できるようになります。
-- **AWS デモ公開**（[`aws/README.md`](aws/README.md)）は任意の検証用です。タスクのパブリック IP `:8080` へ HTTP で公開され、IP は再起動・デプロイのたびに変わります。脆弱版が外部から触れるため、デモ目的・自己責任に限定してください。
+- **AWS デモ公開**（[`aws/README.md`](aws/README.md)）は任意の検証用です。タスクのパブリック IP `:8080` へ HTTP で公開され、IP は再起動・デプロイのたびに変わります。外部から脆弱版にアクセスできるため、デモ目的・自己責任に限定してください。
 - `docker-compose.yml` / `application.yml` には MySQL の **学習用クレデンシャル**が平文で書かれています（**アプリ接続: `secapp` / `secapp`**、**MySQL root: `root` / `rootpass`**）。教材限定の前提で、**他環境への流用は避けて**ください。
-- JDBC URL の `useSSL=false` と `allowPublicKeyRetrieval=true` は、ローカル教材環境の接続優先設定です。本番では TLS を有効にし、接続オプションを環境ポリシーに合わせて見直してください。
+- JDBC URL の `useSSL=false` と `allowPublicKeyRetrieval=true` は、ローカルの教材環境で接続しやすさを優先した設定です。本番では TLS を有効にし、接続オプションを環境ポリシーに合わせて見直してください。
 - `logging.level.org.springframework.jdbc.core=DEBUG` は教材として SQL を追いやすくするためです。本番では機微情報がログに残るリスクがあるため、通常は INFO 以上へ引き上げます。

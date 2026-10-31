@@ -10,7 +10,7 @@
 
     <h2>何が起きるのか</h2>
     <p>ユーザー入力を SQL 文字列に直接連結すると、入力に <code>' OR '1'='1</code> などを混ぜられたとき
-        本来意図した条件式が破壊され、認証バイパスやデータ漏洩・破壊が起きます。</p>
+        本来意図した条件式が書き換わり、認証バイパスやデータ漏洩・破壊が起きます。</p>
 
     <h2>再現手順（ログイン SQLi・VULNERABLE）</h2>
     <ol>
@@ -20,7 +20,7 @@
         </li>
         <li><strong>パスワード</strong>は任意（例: <code>x</code>）。</li>
         <li><strong>ログイン</strong>ボタンを押す。</li>
-        <li><strong>攻撃成功の目安:</strong> 「投稿一覧」などに飛び、画面上部に <code>admin</code> と表示される（複数行ヒット時は先頭ユーザとしてログイン扱い）。</li>
+        <li><strong>攻撃成功の目安:</strong> 「投稿一覧」などに移動し、画面上部に <code>admin</code> と表示される（複数行ヒット時は先頭ユーザとしてログイン扱い）。</li>
         <li><strong>別パターン:</strong> 同じ趣旨で <code>' OR '1'='1' -- </code>（比較式版）も成立します。<code>'</code> の数や <code>--</code> 後のスペースに注意。</li>
         <li><strong>対策版で比較:</strong> <a th:href="@{/secure/login}"><code>/secure/login</code></a> で同じ文字列を試すとログインできない。</li>
     </ol>
@@ -47,7 +47,7 @@
             <pre>x' WHERE id = 1 OR 1=1 -- </pre>
         </li>
         <li><strong>攻撃成功の目安:</strong> 更新対象の 1 件だけでなく、複数コメントの本文が同じ値に変わる（<code>WHERE id = ...</code> が入力で上書きされる）。</li>
-        <li><a th:href="@{/secure/posts/1}">対策版の同じ画面</a>で同じ文字列を更新すると、SQL 文の構造は壊れず「ただの文字列」として保存される。</li>
+        <li><a th:href="@{/secure/posts/1}">対策版の同じ画面</a>で同じ文字列を更新すると、SQL 文の構造は変わらず「ただの文字列」として保存される。</li>
     </ol>
 
     <h2>VULNERABLE 側のコード</h2>

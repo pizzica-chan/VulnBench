@@ -9,8 +9,8 @@
     <h1>クロスサイトリクエストフォージェリ (CSRF)</h1>
 
     <h2>何が起きるのか</h2>
-    <p>被害者がログイン中のサイトに対して、攻撃者の用意したページから「意図しないリクエスト」を発射させる攻撃。
-        ログイン中の Cookie はブラウザが自動送信するため、被害者が気づかない間に投稿削除や設定変更が走ります。</p>
+    <p>被害者がログイン中のサイトに対して、攻撃者の用意したページから「意図しないリクエスト」を送信させる攻撃。
+        ログイン中の Cookie はブラウザが自動送信するため、被害者が気づかないうちに投稿の削除や設定の変更が実行されます。</p>
 
     <h2>再現手順（VULNERABLE 版）</h2>
     <ol>
@@ -48,7 +48,7 @@
                 <span class="doc-code-ref-fqcn">com.example.secapp.vulnerable.web.VulnerablePostController</span>
                 <span class="doc-code-ref-method">状態変更エンドポイント</span>
             </div>
-            <p class="doc-code-ref-desc">削除・更新を<strong>GET</strong>で受け付けているため、意図せない遷移・画像読み込み・フォーム submit だけで状態が変わり得る。</p>
+            <p class="doc-code-ref-desc">削除・更新を<strong>GET</strong>で受け付けているため、意図しない遷移・画像読み込み・フォーム submit だけで状態が変わり得る。</p>
         </div>
         <pre class="doc-code-body">@GetMapping("/{id}/delete")
 public String delete(@PathVariable Long id) { ... }
@@ -66,7 +66,7 @@ public String updateViaGet(@PathVariable Long id,
                 <span class="doc-code-ref-fqcn">com.example.secapp.config.SecurityConfig</span>
                 <span class="doc-code-ref-method">#permissiveFilterChain</span>
             </div>
-            <p class="doc-code-ref-desc">脆弱版ルート側のフィルタチェーンで CSRF 保護をオフにしており（POST があっても）トークン検証が行われない。</p>
+            <p class="doc-code-ref-desc">脆弱版ルート側のフィルタチェーンで CSRF 保護をオフにしているため、POST のリクエストでもトークンを検証しない。</p>
         </div>
         <pre class="doc-code-body">http
         .securityMatcher("/**")
@@ -118,7 +118,7 @@ public String delete(...) { ... }</pre>
     </ul>
 
     <h2>おまけ: Spring Security 以外での CSRF 対策の例</h2>
-    <p>この教材は Spring Security の CSRF フィルタが POST ごと検証する流れです。他スタックでも<strong>状態を変える処理は POST など安全なメソッドに限定し、攻撃ページから捏造しにくい秘密（トークンやカスタムヘッダなど）をサーバーで照合する</strong>、という構図は共通です。</p>
+    <p>この教材では、Spring Security の CSRF フィルタが POST のたびにトークンを検証します。他スタックでも<strong>状態を変える処理は POST など GET 以外のメソッドに限定し、攻撃ページから捏造しにくい秘密（トークンやカスタムヘッダなど）をサーバーで照合する</strong>、という構図は共通です。</p>
 
     <h3>Django</h3>
     <p>設定で <code>django.middleware.csrf.CsrfViewMiddleware</code> が有効なのが普通です。<code>POST</code> するフォームにトークンを埋め込みます。</p>
@@ -141,13 +141,13 @@ public String delete(...) { ... }</pre>
 &lt;% end %&gt;</pre>
 
     <h3>Express（Node.js）での「トークンを自分で検証する」イメージ</h3>
-    <p><code>csurf</code> は広く参照されていた一方で開発終了しており、新規には代替ライブラリやフレームワーク組み込みを選ぶことが多いです。手書きでやる場合の流れは次のイメージです。</p>
+    <p><code>csurf</code> は広く使われていましたが開発が終了しており、新規には代替ライブラリやフレームワーク組み込みを選ぶことが多いです。手書きでやる場合の流れは次のイメージです。</p>
     <ol>
         <li>サーバーは利用者ごとのセッションに、推測されにくい<strong>秘密（シークレット）</strong>を一度だけ格納する。</li>
         <li>フォームを表示するとき、その秘密から計算した<strong>トークン文字列</strong>を hidden フィールドなどに載せ、利用者のブラウザに渡す。</li>
         <li><strong>POST を受け取ったら</strong>、リクエストに付いているトークンが「このセッションの秘密と対になっているか」を検証し、合っていなければ拒否する。</li>
     </ol>
-    <p>攻撃者のページからは「勝手に POST を飛ばす」ことはできますが、<strong>被害者のブラウザの中にだけある正しいトークンを読み取れない</strong>（別サイトなので）ため、トークンなし・偽物の POST にはなりやすく、これで防げます。<code>csrf</code>（npm）などは、この秘密の生成とトークンの作成・検証をライブラリに任せるためのものです。</p>
+    <p>攻撃者のページからも被害者のブラウザに POST を送らせることはできますが、<strong>被害者のブラウザの中にだけある正しいトークンは、別サイトのページからは読み取れません</strong>。そのため攻撃者が送らせる POST はトークンなしか偽物のトークン付きになり、これで防げます。<code>csrf</code>（npm）などは、この秘密の生成とトークンの作成・検証をライブラリに任せるためのものです。</p>
     <pre class="doc-code-body">const Tokens = require('csrf');
 const csrf = new Tokens();
 
@@ -158,7 +158,7 @@ req.session.csrfSecret = csrf.secretSync();
 // POST 時: csrf.verify(req.session.csrfSecret, req.body._csrf)</pre>
 
     <h3>JSON API と Cookie セッションだけの SPA</h3>
-    <p>ブラウザの「単純なフォーム POST」だけでなく、<code>fetch</code> で JSON を送り Cookie だけでログイン状態を伝える場合でも CSRF が成立し得ます。代表的な組み立ては（1）<strong>ログイン応答やメタから CSRF トークンを渡しカスタムヘッダやヘッダ名付きフィールドで毎回送る</strong>、（2）<strong>Bearer など Second factor で Cookie に依存しない</strong>、に分かれます。詳細は <a href="https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP CSRF Prevention Cheat Sheet</a> が整理されています。</p>
+    <p>ブラウザの「単純なフォーム POST」だけでなく、<code>fetch</code> で JSON を送り Cookie だけでログイン状態を伝える場合でも CSRF が成立し得ます。代表的な組み立ては（1）<strong>ログイン応答やメタから CSRF トークンを渡しカスタムヘッダやヘッダ名付きフィールドで毎回送る</strong>、（2）<strong>Bearer トークンなどを Authorization ヘッダで送り、認証を Cookie に依存させない</strong>、に分かれます。詳細は <a href="https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html">OWASP CSRF Prevention Cheat Sheet</a> にまとまっています。</p>
 </main>
 
 <footer th:replace="~{fragments/layout :: footer}"></footer>
