@@ -1,8 +1,8 @@
 package com.example.secapp.vulnerable.dao;
 
 import com.example.secapp.common.entity.User;
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -16,10 +16,18 @@ import java.util.Optional;
  * SQL インジェクションを学ぶため<strong>故意に</strong>文字列連結で SQL を組み立てる。本番では決して利用しないこと。
  */
 @Repository
-@RequiredArgsConstructor
 public class VulnerableUserDao {
 
     private final JdbcTemplate jdbc;
+
+    /**
+     * 脆弱版専用の {@link JdbcTemplate} を受け取って作る。
+     *
+     * @param jdbc {@code vuln_*} テーブルにしか権限のない DB ユーザーの接続（{@link com.example.secapp.config.JdbcConfig}）
+     */
+    public VulnerableUserDao(@Qualifier("vulnerableJdbcTemplate") JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
     private static final RowMapper<User> ROW_MAPPER = (rs, n) -> User.builder()
             .id(rs.getLong("id"))

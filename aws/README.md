@@ -8,7 +8,7 @@ SecApp 向けの個人デモ用 AWS 構成です。ECS Fargate タスクの **�
 |------|------|
 | 用途 | デモ・検証（インターネット公開） |
 | 公開 URL | `http://{タスクのパブリック IP}:8080`（`09_aws-app-url.bat` で表示） |
-| アプリ | Spring Boot 3（JDK 21）、ポート 8080 |
+| アプリ | Spring Boot 4（JDK 21）、ポート 8080 |
 | DB | 同一 ECS タスク内の **MySQL 8 サイドカー**（永続化なし・再起動でリセット） |
 | 配備 | CodePipeline（Build → Test → **ECS ローリング**） |
 | 初期タスク数 | `DesiredCount: 0`（手動で 1 にしたときだけ Fargate 課金） |
@@ -185,14 +185,14 @@ Fargate だけ止める場合は `05_aws-ecs-stop.bat`。スタックごと消�
 
 前提: タスク RUNNING（`04_aws-ecs-start.bat`）、[Session Manager Plugin](https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html) インストール済み。
 
-**方法 A — ECS Exec（対話）:** `07_aws-mysql-shell.bat`
+**方法 A（ECS Exec で対話）:** `07_aws-mysql-shell.bat`
 
-bat 実行で `secapp` に MySQL クライアントが直接開きます。終了は `exit` または `\q`。
+bat を実行すると、DB `secapp` に接続した MySQL クライアントが開きます。終了は `exit` または `\q`。
 
-**方法 B — ローカル mysql クライアント:** `08_aws-mysql-portforward.bat`
+**方法 B（ローカルの mysql クライアント）:** `08_aws-mysql-portforward.bat`
 
-1. bat を起動したまま（`Ctrl+C` で停止）
-2. 別ターミナル:
+1. bat を起動したままにする（`Ctrl+C` で停止）
+2. 別のターミナルで次を実行する
 
 ```powershell
 mysql -h 127.0.0.1 -P 13306 -uroot -p secapp

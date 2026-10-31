@@ -8,7 +8,10 @@ RUN mvn -q -DskipTests package
 # 実行段階: JRE のみで起動
 FROM public.ecr.aws/docker/library/eclipse-temurin:21-jre-alpine
 WORKDIR /app
+# root ではなく専用の一般ユーザーで動かし、アプリが乗っ取られたときにコンテナ内でできることを減らす
+RUN addgroup -S app && adduser -S app -G app
 COPY --from=build /app/target/secapp.jar app.jar
+USER app
 EXPOSE 8080
 ENV SPRING_PROFILES_ACTIVE=docker
 ENTRYPOINT ["java", "-jar", "app.jar"]

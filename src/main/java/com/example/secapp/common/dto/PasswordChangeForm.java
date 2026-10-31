@@ -1,5 +1,6 @@
 package com.example.secapp.common.dto;
 
+import com.example.secapp.common.validation.MaxUtf8Bytes;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -14,6 +15,7 @@ public class PasswordChangeForm {
 
     @NotBlank
     @Size(min = 4, max = 100)
+    @MaxUtf8Bytes(72)
     private String newPassword;
 
     /**

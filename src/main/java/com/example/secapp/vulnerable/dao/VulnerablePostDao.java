@@ -1,8 +1,8 @@
 package com.example.secapp.vulnerable.dao;
 
 import com.example.secapp.common.entity.Post;
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
@@ -16,10 +16,18 @@ import java.util.Optional;
  * 一覧・検索・更新などすべて<strong>故意に</strong> SQL 文字列連結で実装する。
  */
 @Repository
-@RequiredArgsConstructor
 public class VulnerablePostDao {
 
     private final JdbcTemplate jdbc;
+
+    /**
+     * 脆弱版専用の {@link JdbcTemplate} を受け取って作る。
+     *
+     * @param jdbc {@code vuln_*} テーブルにしか権限のない DB ユーザーの接続（{@link com.example.secapp.config.JdbcConfig}）
+     */
+    public VulnerablePostDao(@Qualifier("vulnerableJdbcTemplate") JdbcTemplate jdbc) {
+        this.jdbc = jdbc;
+    }
 
     private static final String SELECT_BASE =
             "SELECT p.id, p.user_id, p.title, p.content, p.created_at, u.username AS author_name "

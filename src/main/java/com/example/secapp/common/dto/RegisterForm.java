@@ -1,6 +1,7 @@
 package com.example.secapp.common.dto;
 
 import jakarta.validation.constraints.Email;
+import com.example.secapp.common.validation.MaxUtf8Bytes;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -16,10 +17,12 @@ public class RegisterForm {
 
     @NotBlank
     @Size(min = 4, max = 100)
+    @MaxUtf8Bytes(72)
     private String password;
 
     @NotBlank
     @Email
+    @Size(max = 128)
     private String email;
 
     /**

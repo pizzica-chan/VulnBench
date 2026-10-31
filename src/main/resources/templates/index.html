@@ -17,12 +17,12 @@
     <div class="hero">
         <div class="panel vuln">
             <h2>脆弱版サイト</h2>
-            <p>SQL 文字列連結、平文パスワード、CSRF 無防備、<code>th:utext</code> による XSS、IDOR、自前 Cookie 認証 — お手本のように脆弱です。</p>
+            <p>SQL 文字列連結、平文パスワード、CSRF 無防備、<code>th:utext</code> による XSS、IDOR、自前 Cookie 認証と、お手本のように脆弱です。</p>
             <p><a th:href="@{/vulnerable/posts}">/vulnerable/posts へ</a></p>
         </div>
         <div class="panel sec">
             <h2>対策版サイト</h2>
-            <p>パラメータ化クエリ、BCrypt、Spring Security、CSRF トークン、オーナー判定、セッション ID 再生成 — 同じ機能を安全に。</p>
+            <p>パラメータ化クエリ、BCrypt、Spring Security、CSRF トークン、オーナー判定、セッション ID 再生成で、同じ機能を安全に実装しています。</p>
             <p><a th:href="@{/secure/posts}">/secure/posts へ</a></p>
         </div>
     </div>

@@ -8,14 +8,18 @@ services:
       MYSQL_DATABASE: secapp
       MYSQL_USER: secapp
       MYSQL_PASSWORD: secapp
+    # 127.0.0.1 に限定し、同じ LAN の他の端末から MySQL に接続されないようにする。
     ports:
-      - "3306:3306"
+      - "127.0.0.1:3306:3306"
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
     # 永続ボリュームにしない。コンテナ再作成／再起動のたびに空の DB から起動（教材用に毎回同じ初期データ）。
     tmpfs:
       - /var/lib/mysql
+    # 初回起動時に、脆弱版専用の DB ユーザー secapp_vuln を作る（vuln_* テーブルだけに権限を与える）。
+    volumes:
+      - ./docker/mysql-init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-prootpass"]
       interval: 5s
@@ -33,7 +37,11 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # 意図的に脆弱なアプリなので 127.0.0.1 に限定し、同じ LAN の他の端末から操作されないようにする。
     ports:
-      - "8080:8080"
+      - "127.0.0.1:8080:8080"
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      # 脆弱版の DAO は、vuln_* テーブルにしか権限のないこのユーザーで接続する（JdbcConfig 参照）。
+      SECAPP_VULNERABLE_DATASOURCE_USERNAME: secapp_vuln
+      SECAPP_VULNERABLE_DATASOURCE_PASSWORD: secapp_vuln
