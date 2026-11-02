@@ -52,6 +52,7 @@ try {
     if ($env:PROJECT_NAME) { $overrides += "ProjectName=$env:PROJECT_NAME" }
     if ($env:MYSQL_ROOT_PASSWORD) { $overrides += "MysqlRootPassword=$env:MYSQL_ROOT_PASSWORD" }
     if ($env:MYSQL_APP_PASSWORD) { $overrides += "MysqlAppPassword=$env:MYSQL_APP_PASSWORD" }
+    if ($env:MYSQL_VULN_PASSWORD) { $overrides += "MysqlVulnPassword=$env:MYSQL_VULN_PASSWORD" }
 
     Write-Host "Stack : $stackName"
     Write-Host "Region: $region"
