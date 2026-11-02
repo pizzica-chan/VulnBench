@@ -26,6 +26,13 @@ Parameters:
     NoEcho: true
     MinLength: 4
     Default: secapp
+  MysqlVulnPassword:
+    Type: String
+    NoEcho: true
+    MinLength: 4
+    Default: secapp_vuln
+    AllowedPattern: "^[A-Za-z0-9_]+$"
+    Description: Password of secapp_vuln (DB user for /vulnerable, vuln_* tables only). Embedded in SQL, so letters, digits and underscore only.
 
 Resources:
   LogGroup:
@@ -179,9 +186,22 @@ Resources:
               Value: secapp
             - Name: MYSQL_PASSWORD
               Value: !Ref MysqlAppPassword
+            - Name: MYSQL_VULN_PASSWORD
+              Value: !Ref MysqlVulnPassword
+          # Fargate cannot mount docker/mysql-init, so write the same init SQL before starting MySQL.
+          # Keep the GRANT statements in sync with docker/mysql-init/01-vulnerable-user.sql.
+          EntryPoint:
+            - sh
+            - -c
           Command:
-            - --character-set-server=utf8mb4
-            - --collation-server=utf8mb4_unicode_ci
+            - |
+              cat > /docker-entrypoint-initdb.d/01-vulnerable-user.sql <<SQL
+              CREATE USER 'secapp_vuln'@'%' IDENTIFIED BY '$MYSQL_VULN_PASSWORD';
+              GRANT SELECT, INSERT, UPDATE, DELETE, CREATE ON secapp.vuln_users    TO 'secapp_vuln'@'%';
+              GRANT SELECT, INSERT, UPDATE, DELETE, CREATE ON secapp.vuln_posts    TO 'secapp_vuln'@'%';
+              GRANT SELECT, INSERT, UPDATE, DELETE, CREATE ON secapp.vuln_comments TO 'secapp_vuln'@'%';
+              SQL
+              exec docker-entrypoint.sh mysqld --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
           HealthCheck:
             Command:
               - CMD-SHELL
@@ -213,6 +233,10 @@ Resources:
               Value: secapp
             - Name: SPRING_DATASOURCE_PASSWORD
               Value: !Ref MysqlAppPassword
+            - Name: SECAPP_VULNERABLE_DATASOURCE_USERNAME
+              Value: secapp_vuln
+            - Name: SECAPP_VULNERABLE_DATASOURCE_PASSWORD
+              Value: !Ref MysqlVulnPassword
           LogConfiguration:
             LogDriver: awslogs
             Options:

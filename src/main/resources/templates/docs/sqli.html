@@ -157,12 +157,12 @@ jdbc.query(
 
     <h2>多層防御: DB ユーザーの権限を絞る</h2>
     <p>パラメータ化クエリが本命の対策ですが、どこか 1 か所でも漏れがあると、攻撃者はアプリの DB ユーザーが持つ権限の範囲で任意の SQL を実行できます。そこで、DB ユーザーに<strong>そのアプリが使うテーブルと操作だけ</strong>を許可しておくと、穴があっても被害の範囲を狭められます（最小権限の原則）。</p>
-    <p>この教材の Docker 構成では、脆弱版は <code>vuln_*</code> テーブルにしか権限のない DB ユーザー <code>secapp_vuln</code> で接続しています（<code>docker/mysql-init/01-vulnerable-user.sql</code>、<code>com.example.secapp.config.JdbcConfig</code>）。</p>
+    <p>この教材の Docker 構成と AWS デモでは、脆弱版は <code>vuln_*</code> テーブルにしか権限のない DB ユーザー <code>secapp_vuln</code> で接続しています（<code>docker/mysql-init/01-vulnerable-user.sql</code>、AWS デモは <code>aws/cloudformation/demo-stack.yaml</code>、<code>com.example.secapp.config.JdbcConfig</code>）。</p>
     <ol>
         <li><a th:href="@{/vulnerable/posts}">脆弱版の投稿一覧</a>の検索欄に、次をそのまま貼り付けて検索する（末尾に半角スペースあり）。対策版のユーザー表 <code>sec_users</code> を <code>UNION</code> でつなげて読み出そうとする攻撃です:
             <pre>x' UNION SELECT id, id, username, password, created_at, email FROM sec_users -- </pre>
         </li>
-        <li><strong>権限を絞っている場合（Docker で起動したとき）:</strong> エラー画面（500）になり、<code>sec_users</code> は読めない。アプリのログ（<code>docker compose logs app</code>）には <code>SELECT command denied to user 'secapp_vuln'</code> と記録される。</li>
+        <li><strong>権限を絞っている場合（Docker や AWS デモで起動したとき）:</strong> エラー画面（500）になり、<code>sec_users</code> は読めない。アプリのログ（Docker では <code>docker compose logs app</code>、AWS デモでは CloudWatch Logs の <code>app</code> ストリーム）には <code>SELECT command denied to user 'secapp_vuln'</code> と記録される。</li>
         <li><strong>権限を絞っていない場合:</strong> 環境変数 <code>SECAPP_VULNERABLE_DATASOURCE_USERNAME</code> を設定せずに起動すると、脆弱版も共通の DB ユーザーで接続する。このときは投稿一覧に、対策版のユーザー名と BCrypt ハッシュが投稿のように並ぶ。</li>
     </ol>
     <p class="meta">権限を絞っても、脆弱版自身のテーブル（<code>vuln_users</code> の平文パスワードなど）は読めてしまいます。権限の制限は被害の範囲を狭める補助策で、SQL インジェクションそのものを防ぐのはパラメータ化クエリです。</p>

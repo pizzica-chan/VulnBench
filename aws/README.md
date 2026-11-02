@@ -27,6 +27,7 @@ GitHub ──► CodePipeline
 ```
 
 - ECS タスク SG: インバウンド **TCP 8080** を全世界に許可（MySQL は直接公開しない）
+- 脆弱版（`/vulnerable`）は、`vuln_*` テーブルにしか権限のない DB ユーザー `secapp_vuln` で接続します。このユーザーは MySQL サイドカーの起動時に作ります（ローカル Docker の `docker/mysql-init/01-vulnerable-user.sql` と同じ権限）。SQL インジェクションで対策版の `sec_users` を読もうとしても、権限エラーになります
 - **ALB は使いません**（停止中 `desired-count=0` でも ALB 固定費がかからない）
 - タスク再起動・デプロイのたびに **パブリック IP は変わります**（`09_aws-app-url.bat` で都度確認）
 - ルートの `buildspec.yml` は **この Pipeline では使いません**（別の CodeBuild プロジェクト用に残しています）。Pipeline は `aws/buildspec-build.yml` と `aws/buildspec-test.yml` を使用します。
@@ -108,6 +109,7 @@ copy aws\deploy.env.example aws\deploy.env
 | `AWS_REGION` | △ | 省略時 `ap-northeast-1` |
 | `BRANCH_NAME` | △ | 省略時 `master` |
 | `STACK_NAME` / `PROJECT_NAME` | △ | 省略時 `secapp-demo` |
+| `MYSQL_VULN_PASSWORD` | △ | 脆弱版用の DB ユーザー `secapp_vuln` のパスワード。英数字と `_` のみ。省略時 `secapp_vuln` |
 
 ### 3. CloudFormation スタック作成
 
@@ -146,6 +148,8 @@ Build → Test → Deploy が成功するまで待ちます。
 ブラウザでその URL を開きます。デモ用アカウントは初回起動時にシードされます（ルート [README.md](../README.md) を参照）。
 
 **既存スタックを ALB 構成から移行する場合:** `02_aws-deploy.bat` を再実行してスタックを更新してください（ALB が削除され、ECS がパブリック IP 公開に切り替わります）。
+
+**既存スタックで脆弱版の DB ユーザーを分ける場合:** `secapp_vuln` を使う設定を含むソースを `master` に取り込んだあと、`02_aws-deploy.bat` でスタックを更新し、`03_aws-pipeline-run.bat` でイメージを作り直してください。更新前のスタックでは、脆弱版も対策版と同じ DB ユーザーで接続しているため、SQL インジェクションで `sec_users` の BCrypt ハッシュを読めます。
 
 ## 課金について
 
